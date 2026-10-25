@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AnalyticsEventType } from "@/types/database";
+import {
+  aggregateFunnelCounts,
+  resolveAnalyticsDateRange,
+  type FunnelSummary,
+} from "./funnel";
 
 export async function recordAnalyticsEvent(
   service: SupabaseClient,
@@ -22,4 +27,33 @@ export async function recordAnalyticsEvent(
   if (error) {
     throw new Error(error.message);
   }
+}
+
+export async function getFunnelSummaryForBusiness(
+  supabase: SupabaseClient,
+  businessId: string,
+  dateInput: { from?: string | null; to?: string | null },
+): Promise<FunnelSummary> {
+  const range = resolveAnalyticsDateRange(dateInput);
+
+  const { data, error } = await supabase
+    .from("analytics_events")
+    .select("event_type")
+    .eq("business_id", businessId)
+    .gte("created_at", range.fromIso)
+    .lt("created_at", range.toIsoExclusive);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const counts = aggregateFunnelCounts(data ?? []);
+  const totalEvents = Object.values(counts).reduce((sum, n) => sum + n, 0);
+
+  return {
+    from: range.from,
+    to: range.to,
+    counts,
+    totalEvents,
+  };
 }
