@@ -2,15 +2,15 @@
 
 AI-assisted review drafts for local businesses: print/share a QR → customer rates attributes + optional comment → Gemini drafts a review → customer copies and continues to the business’s Google review link.
 
-**No review gating. No auto-post to Google. Gemini API only (not OpenAI).**
+**No review gating. No auto-post to Google. Gemini API only (not OpenAI). No Stripe checkout in MVP.**
 
 ## Stack (MVP)
 
 - Next.js App Router (TypeScript strict) + Tailwind
 - Supabase (Postgres, Auth, RLS)
-- Gemini API (server-only; Phase 4)
-- Upstash Redis (rate limits; Phase 4)
-- Sentry + Vercel
+- Gemini API (server-only)
+- Upstash Redis (draft rate limits)
+- Sentry (env-gated) + Vercel
 
 ## Local setup
 
@@ -18,92 +18,92 @@ AI-assisted review drafts for local businesses: print/share a QR → customer ra
 
 - Node.js **22+** (CI uses Node 22; local Node 24 is fine)
 - npm 10+
-- [Docker](https://docs.docker.com/get-docker/) for local Supabase (`supabase start`)
-- Supabase CLI via `npx supabase` (no global install required)
+- [Docker Desktop](https://docs.docker.com/get-docker/) running for local Supabase
+- Supabase CLI via `npx supabase`
 
 ### Steps
 
-1. Clone the repo and install dependencies:
+1. Clone and install:
 
    ```bash
    npm install
-   ```
-
-2. Copy env template:
-
-   ```bash
    cp .env.example .env.local
    ```
 
-3. Start local Supabase and apply migrations:
+2. Start Postgres/Auth locally and apply migrations:
 
    ```bash
    npm run db:start
    npm run db:reset
    ```
 
-   `db:reset` applies `supabase/migrations/*` and `supabase/seed.sql`.
+   Copy URL, anon key, and service role key from the CLI output into `.env.local`.
 
-   Copy the local API URL, anon key, and service role key from the `supabase start` output into `.env.local`:
+3. Fill remaining env (see `.env.example`):
 
    | Variable | Notes |
    |----------|--------|
    | `NEXT_PUBLIC_APP_URL` | e.g. `http://localhost:3000` |
-   | `NEXT_PUBLIC_SUPABASE_URL` | Local or cloud project URL |
-   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon key |
+   | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public client |
    | `SUPABASE_SERVICE_ROLE_KEY` | Server only |
-   | `GEMINI_API_KEY` / `GEMINI_MODEL` | Google Gemini — **not** OpenAI (server-only drafts) |
-   | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Draft rate limits (optional locally; skipped if unset) |
-   | `SENTRY_DSN` | Optional early |
+   | `GEMINI_API_KEY` / `GEMINI_MODEL` | Google Gemini — **not** OpenAI |
+   | `UPSTASH_REDIS_REST_*` | Optional locally; required in prod for draft limits |
+   | `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` | Optional locally; set in prod |
 
-   In the Supabase dashboard (or local Studio), enable **Email** auth with magic link and password. Add redirect URL `http://localhost:3000/auth/callback`.
+4. Enable Supabase **Email** auth (magic link + password). Redirect: `http://localhost:3000/auth/callback`.
 
-4. Run the app:
+5. Run:
 
    ```bash
    npm run dev
    ```
 
-   Open [http://localhost:3000](http://localhost:3000) → **Owner sign in** → create a business (Google review URL allowlisted) → manage rating attributes → **QR** page.
+### End-to-end product path
 
-### Try the QR → feedback flow (Phase 3)
+1. Owner sign-in → create business (allowlisted Google review URL) → attributes → **QR** → create/download.
+2. Open `/r/:token` → rate 1–5 (none preselected) → optional comment → generate/edit/copy draft → **Continue to Google** (always available; never gated by stars).
+3. Owner **Analytics** funnel (scans → sessions → feedback → drafts → copies → Google clicks).
+4. Legal stubs: [`/privacy`](/privacy), [`/terms`](/terms).
 
-1. With Supabase running and migrations applied (`npm run db:reset`), sign in as an owner.
-2. Create a business with an allowlisted Google review URL.
-3. Open **Dashboard → QR** → **Create QR** → download PNG/SVG or **Open** the public URL.
-4. On `/r/:token` (mobile-friendly): rate every attribute 1–5 (none preselected), optional comment, submit.
-5. Inactive/revoked QR codes show a friendly unavailable state (`410`).
-6. After submit, tap **Generate draft** (Gemini). Edit, **Copy**, or regenerate. **Continue to Google** is always available (also on the rating step) — never hidden based on star values; clicks are tracked, not publications.
-7. Owner **Analytics** shows funnel counts (scans → sessions → feedback → drafts → copies → Google clicks) with a date filter.
+### Quality / smoke
 
-Unit tests cover tokens, QR render, feedback validation, draft graders, and mocked Gemini without Docker/live API keys. Live DB integration is skipped when Docker/Supabase is unavailable.
+```bash
+npm run smoke          # lint + typecheck + vitest + build
+npm run test:e2e       # Playwright home smoke (no DB)
+```
 
-### Cloud Supabase (alternative)
+Manual staging steps: [`docs/smoke.md`](./docs/smoke.md).  
+Production DoD checklist: [`docs/production-checklist.md`](./docs/production-checklist.md).
 
-Link a project and push migrations:
+### Cloud Supabase / deploy
 
 ```bash
 npx supabase link --project-ref <ref>
 npx supabase db push
 ```
 
+Deploy on Vercel; set the same env vars for Preview + Production. Point Supabase Auth redirects at preview/prod URLs. One shared staging Supabase project is the MVP assumption for previews.
+
+### Git / branch push notes
+
+Phase work may live on stacked branches (`feat/phase-1-bootstrap` … `feat/phase-6-prod-hardening`). If `git push` fails non-interactively (Windows credential manager), push from an authenticated terminal:
+
+```bash
+git push -u origin feat/phase-6-prod-hardening
+```
+
+Prefer opening a PR from the latest phase branch (or merge the stack into `main` sequentially) so CI runs on GitHub.
+
 ### Scripts
 
 | Script | Purpose |
 |--------|---------|
-| `npm run dev` | Next.js dev server |
-| `npm run build` | Production build |
-| `npm run start` | Serve production build |
-| `npm run lint` | ESLint |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run test` | Vitest |
-| `npm run test:e2e` | Playwright (later phases) |
-| `npm run db:start` | Local Supabase |
-| `npm run db:stop` | Stop local Supabase |
-| `npm run db:reset` | Reset DB + apply migrations |
-
-Phase 5 covers copy + Continue to Google events and owner funnel analytics — see `AGENTS.md`.
+| `npm run dev` / `build` / `start` | App |
+| `npm run lint` / `typecheck` / `test` | Quality |
+| `npm run smoke` | Full local CI-equivalent gate |
+| `npm run test:e2e` | Playwright |
+| `npm run db:start` / `db:reset` / `db:stop` | Local Supabase |
 
 ## Agents
 
-Cursor/agent conventions and product locks live in [`AGENTS.md`](./AGENTS.md).
+Conventions and locks: [`AGENTS.md`](./AGENTS.md).
