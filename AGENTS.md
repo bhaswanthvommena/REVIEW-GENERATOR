@@ -19,19 +19,19 @@ Modular monolith: Next.js App Router + Supabase + Gemini API + Upstash + Sentry 
 - **No auto-post to Google.** Customers copy drafts and post themselves; we track click-throughs only.
 - **No Stripe in MVP.** Billing module is a stub + nullable schema seams only.
 - **AI provider = Gemini API** (`GEMINI_API_KEY` / `GEMINI_MODEL`). Do **not** introduce OpenAI SDKs or `OPENAI_*` env vars.
-- **Multi-attribute ratings (1–5) + optional comment** are the feedback shape (schema arrives in Phase 2); ratings never gate Google.
-- Customers are anonymous token-holders; only business owners have accounts.
+- **Multi-attribute ratings (1–5) + optional comment** are the feedback shape; ratings never gate Google.
+- Customers are anonymous QR token-holders; only business owners have accounts.
+- **No `orgs` table** in MVP; tenant = `business_id` + `owner_id`.
 
 ## Architecture map
 
 ```
 src/app/          App Router pages + /api/v1 route handlers
-src/modules/      Domain modules (auth, businesses, tokens, feedback, ai, …)
-src/lib/          Shared infra (supabase, gemini, rate-limit, env, validation)
-src/components/   Shared UI
-prompts/          Versioned AI prompt templates
-supabase/         Migrations + config (Phase 2+)
-evals/            AI draft eval fixtures (Phase 4+)
+src/modules/      auth | businesses | attributes | google-link | billing | (qr, feedback, ai, analytics later)
+src/lib/          Shared infra (supabase, env, api helpers; gemini/rate-limit later)
+prompts/          Versioned AI prompt templates (Phase 4)
+supabase/         Migrations + config
+evals/            AI draft eval fixtures (Phase 4)
 ```
 
 ## Module rules
@@ -43,26 +43,27 @@ evals/            AI draft eval fixtures (Phase 4+)
 ## Security non-negotiables
 
 1. `GEMINI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, Upstash tokens, Sentry DSN — **server env only**. Never `NEXT_PUBLIC_*` for secrets.
-2. Treat `review_tokens.token` like a password (HTTPS, no full-token logging).
-3. Zod-validate every API boundary; strip control chars from free-text notes.
+2. Treat `qr_codes.public_token` like a password (HTTPS, no full-token logging).
+3. Zod-validate every API boundary; strip control chars from free-text comments.
 4. Treat customer notes as untrusted for prompt injection; system prompt + structured outputs.
-5. Google review URLs: `https` only + host allowlist (see `modules/google-link` when added).
-6. Rate-limit public draft/feedback/analytics endpoints (Upstash).
+5. Google review URLs: `https` only + host allowlist (`modules/google-link`).
+6. Rate-limit public draft/feedback/analytics endpoints (Upstash) when those land.
 7. No secrets in git; use `.env.example` as the contract.
+8. RLS on every public table; anonymous writes only via Route Handlers + service role after token checks.
 
 ## Local / tests / migrations
 
 ```bash
-cp .env.example .env.local   # fill values as services are provisioned
+cp .env.example .env.local
 npm install
-npm run dev                  # http://localhost:3000
+npm run db:start && npm run db:reset   # Docker required
+npm run dev                            # http://localhost:3000
 npm run typecheck
-npm run test                 # Vitest
+npm run test
 npm run build
-npm run test:e2e             # Playwright (when specs exist)
 ```
 
-Supabase CLI migrations land in Phase 2 (`supabase/migrations/`). Do not invent ad-hoc SQL outside migrations.
+Migrations live in `supabase/migrations/`. Do not invent ad-hoc SQL outside migrations.
 
 ## Prompt versioning
 
