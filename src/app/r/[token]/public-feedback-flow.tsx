@@ -8,10 +8,9 @@ type ResolvePayload = {
   businessName: string;
   googleReviewUrl: string;
   attributes: Attribute[];
-  error?: { code: string; message: string };
 };
 
-type Step = "loading" | "rate" | "done" | "error";
+type Step = "loading" | "rate" | "draft" | "error";
 
 export function PublicFeedbackFlow({ token }: { token: string }) {
   const [step, setStep] = useState<Step>("loading");
@@ -22,6 +21,8 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [ratings, setRatings] = useState<Record<string, number | undefined>>({});
   const [comment, setComment] = useState("");
+  const [draftText, setDraftText] = useState("");
+  const [draftWarnings, setDraftWarnings] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -102,7 +103,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
     [attributes, ratings],
   );
 
-  function onSubmit() {
+  function onSubmitFeedback() {
     if (!sessionId || !allRated) return;
     startTransition(async () => {
       setErrorMessage(null);
@@ -132,10 +133,47 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         if (body.next?.googleReviewUrl) {
           setGoogleReviewUrl(body.next.googleReviewUrl);
         }
-        setStep("done");
+        setStep("draft");
       } catch (err) {
         setErrorMessage(
           err instanceof Error ? err.message : "Could not submit feedback.",
+        );
+      }
+    });
+  }
+
+  function onGenerateDraft(regenerate = false) {
+    if (!sessionId) return;
+    startTransition(async () => {
+      setErrorMessage(null);
+      try {
+        const response = await fetch(
+          `/api/v1/r/${encodeURIComponent(token)}/drafts`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              feedbackSessionId: sessionId,
+              regenerate,
+            }),
+          },
+        );
+        const body = (await response.json()) as {
+          draft?: { text: string; warnings?: string[] };
+          googleReviewUrl?: string;
+          error?: { message: string };
+        };
+        if (!response.ok) {
+          throw new Error(body.error?.message ?? "Could not generate draft.");
+        }
+        setDraftText(body.draft?.text ?? "");
+        setDraftWarnings(body.draft?.warnings ?? []);
+        if (body.googleReviewUrl) {
+          setGoogleReviewUrl(body.googleReviewUrl);
+        }
+      } catch (err) {
+        setErrorMessage(
+          err instanceof Error ? err.message : "Could not generate draft.",
         );
       }
     });
@@ -162,25 +200,76 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
     );
   }
 
-  if (step === "done") {
+  if (step === "draft") {
     return (
       <section className="space-y-6">
         <div>
           <p className="text-sm text-zinc-500">{businessName}</p>
-          <h1 className="text-2xl font-semibold tracking-tight">Thank you</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Your review draft</h1>
           <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-            Your ratings are saved. AI draft generation arrives next — you can
-            still continue to Google anytime. Ratings never block that path.
+            AI writes a starting draft from your ratings
+            {comment.trim() ? " and comment" : ""}. Edit anything that is not
+            accurate before you post on Google.
           </p>
         </div>
+
+        {!draftText ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => onGenerateDraft(false)}
+            className="w-full rounded bg-zinc-900 px-4 py-3 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          >
+            {pending ? "Generating…" : "Generate draft"}
+          </button>
+        ) : (
+          <div className="space-y-3">
+            <label className="flex flex-col gap-2 text-sm">
+              Draft (editable)
+              <textarea
+                value={draftText}
+                onChange={(e) => setDraftText(e.target.value)}
+                rows={8}
+                className="rounded border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700"
+                aria-live="polite"
+              />
+            </label>
+            {draftWarnings.length > 0 ? (
+              <ul className="list-disc pl-5 text-xs text-zinc-500">
+                {draftWarnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            ) : null}
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => onGenerateDraft(true)}
+              className="text-sm underline disabled:opacity-50"
+            >
+              {pending ? "Regenerating…" : "Regenerate"}
+            </button>
+          </div>
+        )}
+
+        {errorMessage ? (
+          <p className="text-sm text-red-700 dark:text-red-400" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
+
         <a
           href={googleReviewUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center rounded bg-zinc-900 px-4 py-3 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+          className="inline-flex items-center justify-center rounded border border-zinc-300 px-4 py-3 text-sm font-medium dark:border-zinc-700"
         >
           Continue to Google
         </a>
+        <p className="text-xs text-zinc-500">
+          Continue to Google is always available — never hidden based on your
+          scores or draft quality. We do not post for you.
+        </p>
       </section>
     );
   }
@@ -246,15 +335,15 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
       <button
         type="button"
         disabled={!allRated || pending}
-        onClick={onSubmit}
+        onClick={onSubmitFeedback}
         className="w-full rounded bg-zinc-900 px-4 py-3 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
       >
-        {pending ? "Submitting…" : "Submit feedback"}
+        {pending ? "Submitting…" : "Continue to draft"}
       </button>
 
       <p className="text-xs text-zinc-500">
-        Continue to Google stays available after submit — never hidden based on
-        your scores. AI draft assist comes in a later release.
+        Ratings never block Continue to Google later. AI assists drafting only —
+        you post on Google yourself.
       </p>
     </section>
   );

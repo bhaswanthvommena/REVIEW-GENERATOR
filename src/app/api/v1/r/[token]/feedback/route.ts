@@ -50,9 +50,9 @@ export async function POST(request: Request, context: RouteContext) {
     return apiOk({
       sessionId: session.id,
       status: session.status,
-      // Draft generation is Phase 4. Google CTA is never gated by stars.
+      // Draft via POST /drafts. Google CTA is never gated by stars.
       next: {
-        draftAvailable: false,
+        draftAvailable: true,
         googleReviewUrl: resolved.googleReviewUrl,
         googleCtaPolicy: "always_available_no_rating_gate",
       },

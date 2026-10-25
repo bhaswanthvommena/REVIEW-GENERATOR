@@ -4,6 +4,6 @@ export async function GET() {
   return apiOk({
     ok: true,
     service: "review-generator",
-    phase: "phase-3-qr-feedback",
+    phase: "phase-4-gemini-drafts",
   });
 }
