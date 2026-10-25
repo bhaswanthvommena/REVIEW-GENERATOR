@@ -29,8 +29,8 @@ export default async function QrPage() {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">QR codes</h2>
         <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-          For <span className="font-medium">{business.name}</span>. Each QR opens
-          the public feedback page at <code className="text-sm">/r/:token</code>.
+          For <span className="font-medium">{business.name}</span>. Print it or
+          share the link. Customers open it on their phone.
         </p>
       </div>
       <QrManager businessId={business.id} />

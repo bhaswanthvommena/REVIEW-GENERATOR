@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 type QrCodeRow = {
@@ -18,6 +19,7 @@ export function QrManager({ businessId }: { businessId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const response = await fetch(`/api/v1/businesses/${businessId}/qr-codes`);
@@ -87,26 +89,36 @@ export function QrManager({ businessId }: { businessId: string }) {
     await refresh();
   }
 
+  async function onCopy(qr: QrCodeRow) {
+    try {
+      await navigator.clipboard.writeText(qr.publicUrl);
+      setCopiedId(qr.id);
+      window.setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      setError("Could not copy the link. Select it and copy.");
+    }
+  }
+
   if (loading) {
     return <p className="text-sm text-zinc-500">Loading QR codes…</p>;
   }
 
   return (
     <div className="space-y-6">
-      <form onSubmit={onCreate} className="flex flex-wrap items-end gap-3">
-        <label className="flex min-w-[14rem] flex-1 flex-col gap-1 text-sm">
+      <form onSubmit={onCreate} className="flex flex-col gap-3">
+        <label className="flex flex-col gap-1.5 text-sm">
           Label (optional)
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Front desk"
-            className="rounded border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700"
+            className="min-h-12 rounded-xl border border-zinc-300 bg-transparent px-3 text-base dark:border-zinc-700"
           />
         </label>
         <button
           type="submit"
           disabled={pending}
-          className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
+          className="min-h-12 rounded-xl bg-zinc-900 px-4 text-base font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
         >
           {pending ? "Creating…" : "Create QR"}
         </button>
@@ -125,10 +137,20 @@ export function QrManager({ businessId }: { businessId: string }) {
           {qrCodes.map((qr) => (
             <li
               key={qr.id}
-              className="space-y-2 border-b border-zinc-200 pb-4 dark:border-zinc-800"
+              className="space-y-4 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800"
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+              <div className="flex items-start gap-4">
+                {qr.is_active ? (
+                  <Image
+                    src={`/api/v1/qr-codes/${qr.id}/download?businessId=${businessId}&format=png`}
+                    alt={`QR code${qr.label ? ` for ${qr.label}` : ""}`}
+                    width={128}
+                    height={128}
+                    unoptimized
+                    className="h-32 w-32 shrink-0 rounded-lg bg-white"
+                  />
+                ) : null}
+                <div className="min-w-0">
                   <p className="font-medium">
                     {qr.label ?? "Untitled QR"}
                     {!qr.is_active ? (
@@ -137,42 +159,51 @@ export function QrManager({ businessId }: { businessId: string }) {
                       </span>
                     ) : null}
                   </p>
-                  <p className="break-all text-xs text-zinc-500">{qr.publicUrl}</p>
-                </div>
-                <div className="flex flex-wrap gap-3 text-sm">
-                  <a
-                    className="underline"
-                    href={`/api/v1/qr-codes/${qr.id}/download?businessId=${businessId}&format=png`}
-                  >
-                    PNG
-                  </a>
-                  <a
-                    className="underline"
-                    href={`/api/v1/qr-codes/${qr.id}/download?businessId=${businessId}&format=svg`}
-                  >
-                    SVG
-                  </a>
-                  {qr.is_active ? (
-                    <a
-                      className="underline"
-                      href={qr.publicUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Open
-                    </a>
-                  ) : null}
-                  {qr.is_active ? (
-                    <button
-                      type="button"
-                      className="underline text-red-700 dark:text-red-400"
-                      onClick={() => onDeactivate(qr)}
-                    >
-                      Deactivate
-                    </button>
-                  ) : null}
+                  <p className="mt-1 break-all text-sm text-zinc-500">
+                    {qr.publicUrl}
+                  </p>
                 </div>
               </div>
+              {qr.is_active ? (
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void onCopy(qr)}
+                    className="min-h-12 rounded-xl bg-zinc-900 px-4 text-base font-medium text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  >
+                    {copiedId === qr.id ? "Link copied" : "Copy link"}
+                  </button>
+                  <a
+                    href={qr.publicUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-12 items-center justify-center rounded-xl border border-zinc-300 px-4 text-base font-medium dark:border-zinc-700"
+                  >
+                    Preview
+                  </a>
+                  <div className="flex gap-4 px-1 text-sm">
+                    <a
+                      className="underline"
+                      href={`/api/v1/qr-codes/${qr.id}/download?businessId=${businessId}&format=png`}
+                    >
+                      Download PNG
+                    </a>
+                    <a
+                      className="underline"
+                      href={`/api/v1/qr-codes/${qr.id}/download?businessId=${businessId}&format=svg`}
+                    >
+                      SVG
+                    </a>
+                  </div>
+                  <button
+                    type="button"
+                    className="self-start px-1 text-sm text-zinc-500 underline"
+                    onClick={() => onDeactivate(qr)}
+                  >
+                    Deactivate
+                  </button>
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

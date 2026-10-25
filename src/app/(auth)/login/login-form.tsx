@@ -39,7 +39,9 @@ export function LoginForm() {
         if (otpError) {
           throw otpError;
         }
-        setMessage("Check your email for the magic link.");
+        setMessage(
+          "We sent a sign-in link. Open it on this phone, then you’ll land in the dashboard.",
+        );
         return;
       }
 
@@ -58,7 +60,7 @@ export function LoginForm() {
           return;
         }
         setMessage(
-          "Account created. Check your email to confirm, then sign in.",
+          "Account created. Open the confirmation email, then come back and sign in.",
         );
         return;
       }
@@ -106,7 +108,7 @@ export function LoginForm() {
         </button>
       </div>
 
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex flex-col gap-1.5 text-sm">
         Email
         <input
           type="email"
@@ -114,12 +116,12 @@ export function LoginForm() {
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700"
+          className="min-h-12 rounded-xl border border-zinc-300 bg-transparent px-3 text-base dark:border-zinc-700"
         />
       </label>
 
       {mode === "magic" ? null : (
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm">
           Password
           <input
             type="password"
@@ -128,7 +130,7 @@ export function LoginForm() {
             autoComplete={mode === "signup" ? "new-password" : "current-password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="rounded border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700"
+            className="min-h-12 rounded-xl border border-zinc-300 bg-transparent px-3 text-base dark:border-zinc-700"
           />
         </label>
       )}
@@ -136,7 +138,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="rounded bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
+        className="min-h-12 rounded-xl bg-zinc-900 px-4 text-base font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
       >
         {pending
           ? "Working…"
@@ -148,7 +150,19 @@ export function LoginForm() {
       </button>
 
       {message ? (
-        <p className="text-sm text-emerald-700 dark:text-emerald-400">{message}</p>
+        <div className="space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
+          <p className="text-base font-medium">Check your email</p>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">{message}</p>
+          {mode !== "signin" ? (
+            <button
+              type="button"
+              className="text-sm font-medium underline"
+              onClick={() => selectMode("signin")}
+            >
+              I confirmed — sign in
+            </button>
+          ) : null}
+        </div>
       ) : null}
       {error ? (
         <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
