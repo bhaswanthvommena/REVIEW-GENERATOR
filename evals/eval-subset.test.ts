@@ -10,7 +10,7 @@ import {
 vi.mock("@/lib/gemini", () => ({
   requireGeminiEnv: () => ({
     apiKey: "test-key",
-    model: "gemini-2.5-flash",
+    model: "gemini-3.8-flash",
   }),
   createGeminiClient: () => ({}),
 }));

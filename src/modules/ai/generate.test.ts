@@ -4,7 +4,7 @@ import { generateReviewDraft } from "./generate";
 vi.mock("@/lib/gemini", () => ({
   requireGeminiEnv: () => ({
     apiKey: "test-key",
-    model: "gemini-2.5-flash",
+    model: "gemini-3.8-flash",
   }),
   createGeminiClient: () => ({}),
 }));
@@ -33,7 +33,7 @@ describe("generateReviewDraft (mocked Gemini)", () => {
     );
 
     expect(result.promptVersion).toBe("review-draft/v1");
-    expect(result.model).toBe("gemini-2.5-flash");
+    expect(result.model).toBe("gemini-3.8-flash");
     expect(result.draftText.toLowerCase()).toContain("espresso");
     expect(result.validation.postValidateOk).toBe(true);
   });

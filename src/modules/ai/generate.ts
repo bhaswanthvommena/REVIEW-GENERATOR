@@ -1,4 +1,4 @@
-import type { GoogleGenAI } from "@google/genai";
+import { ThinkingLevel, type GoogleGenAI } from "@google/genai";
 import { createGeminiClient, requireGeminiEnv } from "@/lib/gemini";
 import { buildUserPayload, getPromptVersion, loadSystemPrompt } from "./prompt";
 import {
@@ -58,6 +58,13 @@ function defaultGeminiGenerate(client: GoogleGenAI): GeminiGenerateFn {
         systemInstruction: system,
         responseMimeType: "application/json",
         responseJsonSchema: DRAFT_RESPONSE_JSON_SCHEMA,
+        // A short review does not need a long reasoning pass. Gemini 3
+        // otherwise thinks by default, which is what stretched drafts to minutes.
+        thinkingConfig: {
+          thinkingLevel: ThinkingLevel.MINIMAL,
+          includeThoughts: false,
+        },
+        maxOutputTokens: 1024,
       },
     });
 
