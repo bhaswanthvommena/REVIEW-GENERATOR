@@ -8,7 +8,8 @@ export default function Home() {
       </h1>
       <p className="mt-3 max-w-md text-center text-zinc-600 dark:text-zinc-400">
         AI-assisted review drafts for local businesses. Owners manage Google
-        review links and rating attributes; customers use a QR flow later.
+        review links and rating attributes; customers use a QR flow with Gemini
+        drafts — never gated by stars.
       </p>
       <div className="mt-8 flex gap-4 text-sm">
         <Link
@@ -21,6 +22,15 @@ export default function Home() {
           Dashboard
         </Link>
       </div>
+      <p className="mt-10 text-xs text-zinc-500">
+        <Link href="/privacy" className="underline">
+          Privacy
+        </Link>
+        {" · "}
+        <Link href="/terms" className="underline">
+          Terms
+        </Link>
+      </p>
     </main>
   );
 }

@@ -1,0 +1,38 @@
+# Production readiness checklist (MVP §15)
+
+Use this before promoting a staging build to production. Check items only after evidence exists.
+
+## Product / policy
+
+- [ ] Owner can sign up/in, create a business, paste an allowlisted Google review URL, download QR.
+- [ ] Customer can open `/r/:token` → rate attributes → optional comment → Gemini draft → copy → Continue to Google.
+- [ ] Continue to Google is **never** gated by ratings or draft quality.
+- [ ] No Google Business Profile OAuth/credentials; no auto-post; analytics track click-throughs only.
+- [ ] No OpenAI / `OPENAI_*` env; Gemini key is server-only (`GEMINI_API_KEY`).
+- [ ] Stripe checkout **not** integrated (billing stub + nullable columns only).
+
+## Security / data
+
+- [ ] Supabase RLS enabled on all app tables; owner isolation spot-checked.
+- [ ] Public writes go through Route Handlers + service role after QR token validation.
+- [ ] Upstash rate limits configured in production for draft generation.
+- [ ] Secrets only in host env (Vercel/Supabase); none committed.
+- [ ] Security headers / CSP present (see `next.config.ts`).
+- [ ] Auth redirect URLs set for local, preview, and production.
+
+## Observability / legal
+
+- [ ] `SENTRY_DSN` (and `NEXT_PUBLIC_SENTRY_DSN` for browser) set in production; test error appears in Sentry.
+- [ ] `/privacy` and `/terms` stubs reviewed or replaced by counsel before public launch.
+- [ ] Backup / PITR plan noted for Supabase when leaving free tier.
+
+## Quality gates
+
+- [ ] `npm run smoke` green locally (lint, typecheck, test, build).
+- [ ] CI green on the release branch / `main`.
+- [ ] Staging smoke walkthrough accepted by product owner (see `docs/smoke.md`).
+
+## Ops notes
+
+- Staging DB strategy (locked for MVP): one shared Supabase staging project for previews.
+- Branch merge strategy: stack `feat/phase-1` … `feat/phase-6` into `main` via PR(s), or open one PR from `feat/phase-6-prod-hardening` after pushing intermediate branches.
