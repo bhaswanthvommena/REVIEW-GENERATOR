@@ -1,0 +1,3 @@
+-- Optional local fixtures. Prefer creating businesses via the app so
+-- seed_default_rating_attributes() runs and owner_id matches a real auth user.
+-- Leave empty for Phase 2; CI does not require seed data.
