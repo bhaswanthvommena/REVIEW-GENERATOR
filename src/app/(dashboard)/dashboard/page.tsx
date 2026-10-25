@@ -44,6 +44,9 @@ export default async function DashboardPage() {
                 <Link href="/dashboard/qr" className="underline">
                   QR codes
                 </Link>
+                <Link href="/dashboard/analytics" className="underline">
+                  Analytics
+                </Link>
               </div>
             </li>
           ))}

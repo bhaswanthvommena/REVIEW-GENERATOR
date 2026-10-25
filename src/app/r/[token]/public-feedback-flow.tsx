@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 type Attribute = { id: string; label: string; displayOrder: number };
 
@@ -12,9 +12,13 @@ type ResolvePayload = {
 
 type Step = "loading" | "rate" | "draft" | "error";
 
+const focusRing =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100";
+
 export function PublicFeedbackFlow({ token }: { token: string }) {
   const [step, setStep] = useState<Step>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState("");
   const [googleReviewUrl, setGoogleReviewUrl] = useState("");
   const [attributes, setAttributes] = useState<Attribute[]>([]);
@@ -23,7 +27,12 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
   const [comment, setComment] = useState("");
   const [draftText, setDraftText] = useState("");
   const [draftWarnings, setDraftWarnings] = useState<string[]>([]);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
   const [pending, startTransition] = useTransition();
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const draftStatusRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +102,12 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
     };
   }, [token]);
 
+  useEffect(() => {
+    if (step === "rate" || step === "draft" || step === "error") {
+      headingRef.current?.focus();
+    }
+  }, [step]);
+
   const allRated = useMemo(
     () =>
       attributes.length > 0 &&
@@ -103,10 +118,31 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
     [attributes, ratings],
   );
 
+  async function emitEvent(
+    eventType: "draft_copied" | "google_continue_clicked",
+    props?: Record<string, unknown>,
+  ) {
+    try {
+      await fetch(`/api/v1/r/${encodeURIComponent(token)}/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType,
+          feedbackSessionId: sessionId ?? undefined,
+          props,
+        }),
+        keepalive: true,
+      });
+    } catch {
+      // Analytics should not block UX.
+    }
+  }
+
   function onSubmitFeedback() {
     if (!sessionId || !allRated) return;
     startTransition(async () => {
       setErrorMessage(null);
+      setStatusMessage("Saving your ratings…");
       try {
         const response = await fetch(
           `/api/v1/r/${encodeURIComponent(token)}/feedback`,
@@ -133,8 +169,10 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         if (body.next?.googleReviewUrl) {
           setGoogleReviewUrl(body.next.googleReviewUrl);
         }
+        setStatusMessage(null);
         setStep("draft");
       } catch (err) {
+        setStatusMessage(null);
         setErrorMessage(
           err instanceof Error ? err.message : "Could not submit feedback.",
         );
@@ -146,6 +184,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
     if (!sessionId) return;
     startTransition(async () => {
       setErrorMessage(null);
+      setStatusMessage(regenerate ? "Regenerating draft…" : "Generating draft…");
       try {
         const response = await fetch(
           `/api/v1/r/${encodeURIComponent(token)}/drafts`,
@@ -171,7 +210,10 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         if (body.googleReviewUrl) {
           setGoogleReviewUrl(body.googleReviewUrl);
         }
+        setStatusMessage("Draft ready. You can edit it before copying.");
+        draftStatusRef.current?.focus();
       } catch (err) {
+        setStatusMessage(null);
         setErrorMessage(
           err instanceof Error ? err.message : "Could not generate draft.",
         );
@@ -179,9 +221,41 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
     });
   }
 
+  async function onCopyDraft() {
+    if (!draftText.trim()) return;
+    try {
+      await navigator.clipboard.writeText(draftText);
+      setCopyState("copied");
+      setStatusMessage("Draft copied to clipboard.");
+      await emitEvent("draft_copied", { length: draftText.length });
+      window.setTimeout(() => setCopyState("idle"), 2000);
+    } catch {
+      setCopyState("failed");
+      setStatusMessage("Could not copy automatically. Select the text and copy.");
+    }
+  }
+
+  function onContinueToGoogle() {
+    void emitEvent("google_continue_clicked", {
+      hadDraft: Boolean(draftText.trim()),
+    });
+  }
+
+  const googleCta = (
+    <a
+      href={googleReviewUrl || "#"}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={onContinueToGoogle}
+      className={`inline-flex min-h-12 w-full items-center justify-center rounded border border-zinc-300 px-4 py-3 text-base font-medium dark:border-zinc-700 ${focusRing}`}
+    >
+      Continue to Google
+    </a>
+  );
+
   if (step === "loading") {
     return (
-      <div className="space-y-3" aria-live="polite">
+      <div className="space-y-3" aria-live="polite" aria-busy="true">
         <p className="text-sm text-zinc-500">Opening feedback…</p>
         <div className="h-2 w-full animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
       </div>
@@ -191,8 +265,14 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
   if (step === "error") {
     return (
       <section className="space-y-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Link unavailable</h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-2xl font-semibold tracking-tight outline-none"
+        >
+          Link unavailable
+        </h1>
+        <p className="text-zinc-600 dark:text-zinc-400" role="alert">
           {errorMessage ??
             "This QR code may be expired, revoked, or invalid. Ask the business for a new one."}
         </p>
@@ -205,20 +285,40 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
       <section className="space-y-6">
         <div>
           <p className="text-sm text-zinc-500">{businessName}</p>
-          <h1 className="text-2xl font-semibold tracking-tight">Your review draft</h1>
+          <h1
+            ref={headingRef}
+            tabIndex={-1}
+            className="text-2xl font-semibold tracking-tight outline-none"
+          >
+            Your review draft
+          </h1>
           <p className="mt-2 text-zinc-600 dark:text-zinc-400">
             AI writes a starting draft from your ratings
-            {comment.trim() ? " and comment" : ""}. Edit anything that is not
-            accurate before you post on Google.
+            {comment.trim() ? " and comment" : ""}. Edit for accuracy, copy, then
+            continue to Google. We never post for you.
           </p>
         </div>
+
+        <p
+          ref={draftStatusRef}
+          tabIndex={-1}
+          className="sr-only outline-none"
+          aria-live="polite"
+        >
+          {statusMessage}
+        </p>
+        {statusMessage ? (
+          <p className="text-sm text-zinc-600 dark:text-zinc-400" aria-hidden="true">
+            {statusMessage}
+          </p>
+        ) : null}
 
         {!draftText ? (
           <button
             type="button"
             disabled={pending}
             onClick={() => onGenerateDraft(false)}
-            className="w-full rounded bg-zinc-900 px-4 py-3 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+            className={`min-h-12 w-full rounded bg-zinc-900 px-4 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 ${focusRing}`}
           >
             {pending ? "Generating…" : "Generate draft"}
           </button>
@@ -230,8 +330,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
                 value={draftText}
                 onChange={(e) => setDraftText(e.target.value)}
                 rows={8}
-                className="rounded border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700"
-                aria-live="polite"
+                className={`min-h-40 rounded border border-zinc-300 bg-transparent px-3 py-3 text-base dark:border-zinc-700 ${focusRing}`}
               />
             </label>
             {draftWarnings.length > 0 ? (
@@ -241,14 +340,24 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
                 ))}
               </ul>
             ) : null}
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => onGenerateDraft(true)}
-              className="text-sm underline disabled:opacity-50"
-            >
-              {pending ? "Regenerating…" : "Regenerate"}
-            </button>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                disabled={pending || !draftText.trim()}
+                onClick={() => void onCopyDraft()}
+                className={`min-h-12 flex-1 rounded bg-zinc-900 px-4 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 ${focusRing}`}
+              >
+                {copyState === "copied" ? "Copied" : "Copy draft"}
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => onGenerateDraft(true)}
+                className={`min-h-12 flex-1 rounded border border-zinc-300 px-4 py-3 text-base font-medium dark:border-zinc-700 disabled:opacity-50 ${focusRing}`}
+              >
+                {pending ? "Regenerating…" : "Regenerate"}
+              </button>
+            </div>
           </div>
         )}
 
@@ -258,17 +367,11 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
           </p>
         ) : null}
 
-        <a
-          href={googleReviewUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center justify-center rounded border border-zinc-300 px-4 py-3 text-sm font-medium dark:border-zinc-700"
-        >
-          Continue to Google
-        </a>
+        {/* Always available — never gated by ratings or draft presence. */}
+        {googleCta}
         <p className="text-xs text-zinc-500">
-          Continue to Google is always available — never hidden based on your
-          scores or draft quality. We do not post for you.
+          Continue to Google stays available whether or not you generate or copy
+          a draft. Ratings never hide this button.
         </p>
       </section>
     );
@@ -277,7 +380,13 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
   return (
     <section className="space-y-8">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">{businessName}</h1>
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="text-3xl font-semibold tracking-tight outline-none"
+        >
+          {businessName}
+        </h1>
         <p className="mt-2 text-zinc-600 dark:text-zinc-400">
           How was your visit? Rate each item — nothing is preselected. A short
           comment is optional.
@@ -288,7 +397,11 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         {attributes.map((attr) => (
           <fieldset key={attr.id} className="space-y-2">
             <legend className="text-sm font-medium">{attr.label}</legend>
-            <div className="flex gap-2" role="radiogroup" aria-label={attr.label}>
+            <div
+              className="flex flex-wrap gap-2"
+              role="radiogroup"
+              aria-label={attr.label}
+            >
               {[1, 2, 3, 4, 5].map((value) => {
                 const selected = ratings[attr.id] === value;
                 return (
@@ -296,10 +409,11 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
                     key={value}
                     type="button"
                     aria-pressed={selected}
+                    aria-label={`${attr.label}: ${value} out of 5`}
                     onClick={() =>
                       setRatings((prev) => ({ ...prev, [attr.id]: value }))
                     }
-                    className={`h-11 w-11 rounded border text-sm font-medium transition-colors ${
+                    className={`h-12 w-12 rounded border text-base font-medium transition-colors ${focusRing} ${
                       selected
                         ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
                         : "border-zinc-300 bg-transparent dark:border-zinc-700"
@@ -322,9 +436,13 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
           rows={4}
           maxLength={2000}
           placeholder="What stood out?"
-          className="rounded border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700"
+          className={`rounded border border-zinc-300 bg-transparent px-3 py-3 text-base dark:border-zinc-700 ${focusRing}`}
         />
       </label>
+
+      <div aria-live="polite" className="sr-only">
+        {statusMessage}
+      </div>
 
       {errorMessage ? (
         <p className="text-sm text-red-700 dark:text-red-400" role="alert">
@@ -336,14 +454,16 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         type="button"
         disabled={!allRated || pending}
         onClick={onSubmitFeedback}
-        className="w-full rounded bg-zinc-900 px-4 py-3 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+        className={`min-h-12 w-full rounded bg-zinc-900 px-4 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 ${focusRing}`}
       >
         {pending ? "Submitting…" : "Continue to draft"}
       </button>
 
+      {/* Google path is never gated by the star ratings above. */}
+      {googleReviewUrl ? googleCta : null}
       <p className="text-xs text-zinc-500">
-        Ratings never block Continue to Google later. AI assists drafting only —
-        you post on Google yourself.
+        Continue to Google is available now and after drafting — never hidden
+        based on your scores.
       </p>
     </section>
   );
