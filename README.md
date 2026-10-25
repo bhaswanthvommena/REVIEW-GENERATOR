@@ -73,7 +73,8 @@ AI-assisted review drafts for local businesses: print/share a QR → customer ra
 3. Open **Dashboard → QR** → **Create QR** → download PNG/SVG or **Open** the public URL.
 4. On `/r/:token` (mobile-friendly): rate every attribute 1–5 (none preselected), optional comment, submit.
 5. Inactive/revoked QR codes show a friendly unavailable state (`410`).
-6. After submit, tap **Generate draft** (Gemini). Edit or regenerate. **Continue to Google** remains available — never hidden based on star values.
+6. After submit, tap **Generate draft** (Gemini). Edit, **Copy**, or regenerate. **Continue to Google** is always available (also on the rating step) — never hidden based on star values; clicks are tracked, not publications.
+7. Owner **Analytics** shows funnel counts (scans → sessions → feedback → drafts → copies → Google clicks) with a date filter.
 
 Unit tests cover tokens, QR render, feedback validation, draft graders, and mocked Gemini without Docker/live API keys. Live DB integration is skipped when Docker/Supabase is unavailable.
 
@@ -101,7 +102,7 @@ npx supabase db push
 | `npm run db:stop` | Stop local Supabase |
 | `npm run db:reset` | Reset DB + apply migrations |
 
-Phase 4 covers Gemini structured drafts (`prompts/review-draft/v1.md`), Upstash draft rate limits, and eval fixtures — see `AGENTS.md`.
+Phase 5 covers copy + Continue to Google events and owner funnel analytics — see `AGENTS.md`.
 
 ## Agents
 

@@ -14,7 +14,7 @@ Modular monolith: Next.js App Router + Supabase + Gemini API + Upstash + Sentry 
 
 ## Product constraints (locked)
 
-- **No review gating.** Never hide or disable “Continue to Google” based on star rating or draft quality.
+- **No review gating.** Never hide or disable “Continue to Google” based on star rating or draft quality. Track `google_continue_clicked` / `draft_copied` only — never claim a review was published.
 - **No Google OAuth / Business Profile API credentials** in MVP. Owners paste an official Google review URL.
 - **No auto-post to Google.** Customers copy drafts and post themselves; we track click-throughs only.
 - **No Stripe in MVP.** Billing module is a stub + nullable schema seams only.
