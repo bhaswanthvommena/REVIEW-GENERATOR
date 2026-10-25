@@ -27,11 +27,11 @@ Modular monolith: Next.js App Router + Supabase + Gemini API + Upstash + Sentry 
 
 ```
 src/app/          App Router pages + /api/v1 route handlers
-src/modules/      auth | businesses | attributes | qr | feedback | analytics | google-link | billing | (ai later)
-src/lib/          Shared infra (supabase, env, api helpers; gemini/rate-limit later)
-prompts/          Versioned AI prompt templates (Phase 4)
+src/modules/      auth | businesses | attributes | qr | feedback | ai | analytics | google-link | billing
+src/lib/          Shared infra (supabase, gemini, rate-limit, env, api helpers)
+prompts/          Versioned AI prompt templates (`review-draft/v1`)
 supabase/         Migrations + config
-evals/            AI draft eval fixtures (Phase 4)
+evals/            AI draft eval fixtures + Vitest graders
 ```
 
 ## Module rules

@@ -52,8 +52,8 @@ AI-assisted review drafts for local businesses: print/share a QR → customer ra
    | `NEXT_PUBLIC_SUPABASE_URL` | Local or cloud project URL |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon key |
    | `SUPABASE_SERVICE_ROLE_KEY` | Server only |
-   | `GEMINI_API_KEY` / `GEMINI_MODEL` | Google Gemini — **not** OpenAI (unused until Phase 4) |
-   | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Rate limits (Phase 4) |
+   | `GEMINI_API_KEY` / `GEMINI_MODEL` | Google Gemini — **not** OpenAI (server-only drafts) |
+   | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Draft rate limits (optional locally; skipped if unset) |
    | `SENTRY_DSN` | Optional early |
 
    In the Supabase dashboard (or local Studio), enable **Email** auth with magic link and password. Add redirect URL `http://localhost:3000/auth/callback`.
@@ -73,9 +73,9 @@ AI-assisted review drafts for local businesses: print/share a QR → customer ra
 3. Open **Dashboard → QR** → **Create QR** → download PNG/SVG or **Open** the public URL.
 4. On `/r/:token` (mobile-friendly): rate every attribute 1–5 (none preselected), optional comment, submit.
 5. Inactive/revoked QR codes show a friendly unavailable state (`410`).
-6. After submit, **Continue to Google** remains available — never hidden based on star values. AI drafts are Phase 4.
+6. After submit, tap **Generate draft** (Gemini). Edit or regenerate. **Continue to Google** remains available — never hidden based on star values.
 
-Unit tests cover tokens, QR render, and feedback validation without Docker. Live DB integration is skipped when Docker/Supabase is unavailable.
+Unit tests cover tokens, QR render, feedback validation, draft graders, and mocked Gemini without Docker/live API keys. Live DB integration is skipped when Docker/Supabase is unavailable.
 
 ### Cloud Supabase (alternative)
 
@@ -101,7 +101,7 @@ npx supabase db push
 | `npm run db:stop` | Stop local Supabase |
 | `npm run db:reset` | Reset DB + apply migrations |
 
-Phase 3 covers QR create/download/deactivate and public `/r/:token` multi-attribute feedback. Gemini drafts are Phase 4 — see `AGENTS.md`.
+Phase 4 covers Gemini structured drafts (`prompts/review-draft/v1.md`), Upstash draft rate limits, and eval fixtures — see `AGENTS.md`.
 
 ## Agents
 
