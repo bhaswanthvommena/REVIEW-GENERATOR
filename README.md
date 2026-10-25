@@ -64,7 +64,18 @@ AI-assisted review drafts for local businesses: print/share a QR → customer ra
    npm run dev
    ```
 
-   Open [http://localhost:3000](http://localhost:3000) → **Owner sign in** → create a business (Google review URL allowlisted) → manage rating attributes.
+   Open [http://localhost:3000](http://localhost:3000) → **Owner sign in** → create a business (Google review URL allowlisted) → manage rating attributes → **QR** page.
+
+### Try the QR → feedback flow (Phase 3)
+
+1. With Supabase running and migrations applied (`npm run db:reset`), sign in as an owner.
+2. Create a business with an allowlisted Google review URL.
+3. Open **Dashboard → QR** → **Create QR** → download PNG/SVG or **Open** the public URL.
+4. On `/r/:token` (mobile-friendly): rate every attribute 1–5 (none preselected), optional comment, submit.
+5. Inactive/revoked QR codes show a friendly unavailable state (`410`).
+6. After submit, **Continue to Google** remains available — never hidden based on star values. AI drafts are Phase 4.
+
+Unit tests cover tokens, QR render, and feedback validation without Docker. Live DB integration is skipped when Docker/Supabase is unavailable.
 
 ### Cloud Supabase (alternative)
 
@@ -90,7 +101,7 @@ npx supabase db push
 | `npm run db:stop` | Stop local Supabase |
 | `npm run db:reset` | Reset DB + apply migrations |
 
-Phase 2 covers schema/RLS, owner auth, business + attributes CRUD, billing stub. QR UI, public `/r`, and Gemini drafts are later phases — see `AGENTS.md`.
+Phase 3 covers QR create/download/deactivate and public `/r/:token` multi-attribute feedback. Gemini drafts are Phase 4 — see `AGENTS.md`.
 
 ## Agents
 
