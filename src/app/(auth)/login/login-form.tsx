@@ -4,16 +4,22 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
-type Mode = "magic" | "password";
+type Mode = "magic" | "signin" | "signup";
 
 export function LoginForm() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("magic");
+  const [mode, setMode] = useState<Mode>("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  function selectMode(next: Mode) {
+    setMode(next);
+    setMessage(null);
+    setError(null);
+  }
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -37,24 +43,32 @@ export function LoginForm() {
         return;
       }
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (signInError) {
-        // First-time owners can create a password account.
-        const { error: signUpError } = await supabase.auth.signUp({
+      if (mode === "signup") {
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: redirectTo },
         });
         if (signUpError) {
-          throw signInError;
+          throw signUpError;
+        }
+        if (data.session) {
+          router.push("/dashboard");
+          router.refresh();
+          return;
         }
         setMessage(
-          "Account created. If email confirmation is required, check your inbox; otherwise refresh and open the dashboard.",
+          "Account created. Check your email to confirm, then sign in.",
         );
         return;
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInError) {
+        throw signInError;
       }
 
       router.push("/dashboard");
@@ -71,19 +85,24 @@ export function LoginForm() {
       <div className="flex gap-2 text-sm">
         <button
           type="button"
-          className={mode === "magic" ? "font-semibold underline" : "opacity-70"}
-          onClick={() => setMode("magic")}
+          className={mode === "signup" ? "font-semibold underline" : "opacity-70"}
+          onClick={() => selectMode("signup")}
         >
-          Magic link
+          Sign up
         </button>
         <button
           type="button"
-          className={
-            mode === "password" ? "font-semibold underline" : "opacity-70"
-          }
-          onClick={() => setMode("password")}
+          className={mode === "signin" ? "font-semibold underline" : "opacity-70"}
+          onClick={() => selectMode("signin")}
         >
-          Password
+          Sign in
+        </button>
+        <button
+          type="button"
+          className={mode === "magic" ? "font-semibold underline" : "opacity-70"}
+          onClick={() => selectMode("magic")}
+        >
+          Magic link
         </button>
       </div>
 
@@ -99,27 +118,33 @@ export function LoginForm() {
         />
       </label>
 
-      {mode === "password" ? (
+      {mode === "magic" ? null : (
         <label className="flex flex-col gap-1 text-sm">
           Password
           <input
             type="password"
             required
             minLength={8}
-            autoComplete="current-password"
+            autoComplete={mode === "signup" ? "new-password" : "current-password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="rounded border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700"
           />
         </label>
-      ) : null}
+      )}
 
       <button
         type="submit"
         disabled={pending}
         className="rounded bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
       >
-        {pending ? "Working…" : mode === "magic" ? "Send magic link" : "Continue"}
+        {pending
+          ? "Working…"
+          : mode === "signup"
+            ? "Create account"
+            : mode === "signin"
+              ? "Sign in"
+              : "Send magic link"}
       </button>
 
       {message ? (
