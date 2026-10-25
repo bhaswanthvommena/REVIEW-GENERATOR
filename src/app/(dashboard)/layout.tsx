@@ -34,6 +34,9 @@ export default async function DashboardLayout({
           >
             Business
           </Link>
+          <Link href="/dashboard/qr" className="underline-offset-4 hover:underline">
+            QR
+          </Link>
           <form action="/auth/signout" method="post">
             <button type="submit" className="opacity-70 hover:opacity-100">
               Sign out

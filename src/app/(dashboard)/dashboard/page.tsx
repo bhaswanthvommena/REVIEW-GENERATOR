@@ -34,12 +34,17 @@ export default async function DashboardPage() {
               <p className="truncate text-sm text-zinc-500">
                 {business.google_review_url}
               </p>
-              <Link
-                href={`/dashboard/business/${business.id}`}
-                className="mt-1 inline-block text-sm underline"
-              >
-                Manage settings & attributes
-              </Link>
+              <div className="mt-1 flex gap-3 text-sm">
+                <Link
+                  href={`/dashboard/business/${business.id}`}
+                  className="underline"
+                >
+                  Settings & attributes
+                </Link>
+                <Link href="/dashboard/qr" className="underline">
+                  QR codes
+                </Link>
+              </div>
             </li>
           ))}
         </ul>
