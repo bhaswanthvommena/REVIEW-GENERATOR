@@ -1,13 +1,35 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/modules/auth";
 import { listBusinessesForOwner } from "@/modules/businesses";
 import { DashboardNav } from "./dashboard-nav";
 
-/** Owner session via cookies — do not prerender as a static shell. */
+/** Owner session via cookies — allowed to block instant navigation. */
 export const instant = false;
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <Suspense fallback={<DashboardFallback />}>
+      <DashboardSession>{children}</DashboardSession>
+    </Suspense>
+  );
+}
+
+function DashboardFallback() {
+  return (
+    <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-5 pt-5 pb-28">
+      <p className="text-base font-semibold tracking-tight">Review Generator</p>
+      <p className="py-6 text-sm text-zinc-500">Loading your dashboard…</p>
+    </div>
+  );
+}
+
+async function DashboardSession({
   children,
 }: {
   children: React.ReactNode;

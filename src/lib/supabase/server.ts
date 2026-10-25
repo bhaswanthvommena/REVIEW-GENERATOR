@@ -7,8 +7,10 @@ import {
 } from "@/lib/env";
 
 export async function createClient() {
-  const { url, anonKey } = requireSupabasePublicEnv();
+  // Suspend prerender before reading env. A missing public key must not fail
+  // `next build`; the session cookie is only available on a real request.
   const cookieStore = await cookies();
+  const { url, anonKey } = requireSupabasePublicEnv();
 
   return createServerClient(url, anonKey, {
     cookies: {
