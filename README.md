@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Review Generator
 
-## Getting Started
+AI-assisted review drafts for local businesses: print/share a QR → customer leaves feedback → Gemini drafts a review → customer copies and continues to the business’s Google review link.
 
-First, run the development server:
+**No review gating. No auto-post to Google. Gemini API only (not OpenAI).**
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Stack (MVP)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Next.js App Router (TypeScript strict) + Tailwind
+- Supabase (Postgres, Auth, RLS) — wired in Phase 2+
+- Gemini API (server-only)
+- Upstash Redis (rate limits)
+- Sentry + Vercel
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Local setup
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Requirements
 
-## Learn More
+- Node.js **22+** (CI uses Node 22; local Node 24 is fine)
+- npm 10+
 
-To learn more about Next.js, take a look at the following resources:
+### Steps
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Clone the repo and install dependencies:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   ```bash
+   npm install
+   ```
 
-## Deploy on Vercel
+2. Copy env template and fill values as you provision services:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   ```bash
+   cp .env.example .env.local
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   Required keys (see `.env.example`):
+
+   | Variable | Notes |
+   |----------|--------|
+   | `NEXT_PUBLIC_APP_URL` | e.g. `http://localhost:3000` |
+   | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Server only |
+   | `GEMINI_API_KEY` / `GEMINI_MODEL` | Google Gemini API — **not** OpenAI |
+   | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Rate limits |
+   | `SENTRY_DSN` | Optional in early local work |
+
+3. Run the app:
+
+   ```bash
+   npm run dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000).
+
+### Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `npm run dev` | Next.js dev server |
+| `npm run build` | Production build |
+| `npm run start` | Serve production build |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run test` | Vitest unit/smoke |
+| `npm run test:e2e` | Playwright (specs land in later phases) |
+
+Phase 1 is a bootstrap shell: empty app + tooling. Auth, Supabase migrations, QR, and AI arrive in later phases — see project `docs/mvp-implementation-plan.md` / `AGENTS.md`.
+
+## Agents
+
+Cursor/agent conventions and product locks live in [`AGENTS.md`](./AGENTS.md).
