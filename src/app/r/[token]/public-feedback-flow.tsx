@@ -5,6 +5,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/cn";
+import { toUserMessage, UserFacingError } from "@/lib/api/client";
 
 type Attribute = { id: string; label: string; displayOrder: number };
 
@@ -127,7 +128,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         };
 
         if (!resolveRes.ok) {
-          throw new Error(
+          throw new UserFacingError(
             resolveBody.error?.message ??
               (resolveRes.status === 410
                 ? "This QR code is no longer active."
@@ -157,7 +158,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
           error?: { message: string };
         };
         if (!sessionRes.ok || !sessionBody.sessionId) {
-          throw new Error(sessionBody.error?.message ?? "Could not start a feedback session.");
+          throw new UserFacingError(sessionBody.error?.message ?? "Could not start a feedback session.");
         }
 
         if (cancelled) return;
@@ -165,7 +166,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         setStep("rate");
       } catch (err) {
         if (cancelled) return;
-        setErrorMessage(err instanceof Error ? err.message : "Something went wrong.");
+        setErrorMessage(toUserMessage(err));
         setStep("error");
       }
     }
@@ -248,7 +249,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         error?: { message: string };
       };
       if (!response.ok) {
-        throw new Error(body.error?.message ?? "Could not generate draft.");
+        throw new UserFacingError(body.error?.message ?? "Could not generate draft.");
       }
       setDraftText(body.draft?.text ?? "");
       setDraftWarnings(body.draft?.warnings ?? []);
@@ -259,7 +260,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
       draftStatusRef.current?.focus();
     } catch (err) {
       setStatusMessage(null);
-      setErrorMessage(err instanceof Error ? err.message : "Could not generate draft.");
+      setErrorMessage(toUserMessage(err));
     }
   }
 
@@ -292,7 +293,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
           next?: { googleReviewUrl?: string };
         };
         if (!response.ok) {
-          throw new Error(body.error?.message ?? "Could not submit feedback.");
+          throw new UserFacingError(body.error?.message ?? "Could not submit feedback.");
         }
         if (body.next?.googleReviewUrl) {
           setGoogleReviewUrl(body.next.googleReviewUrl);
@@ -301,7 +302,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         await requestDraft(false);
       } catch (err) {
         setStatusMessage(null);
-        setErrorMessage(err instanceof Error ? err.message : "Could not submit feedback.");
+        setErrorMessage(toUserMessage(err));
       }
     });
   }

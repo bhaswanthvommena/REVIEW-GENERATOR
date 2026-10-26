@@ -53,6 +53,13 @@ docs/             smoke.md | production-checklist.md
 7. No secrets in git; `.env.example` is the contract.
 8. RLS on every public table; anonymous writes only via Route Handlers + service role after token checks.
 9. Security headers / CSP configured in `next.config.ts`.
+10. Never show internal errors. `apiError` masks every 5xx as "Something went wrong, please try again." and logs the real one; use `internalError(error)` in catch-alls. Clients show messages only from `UserFacingError` (`src/lib/api/client.ts`); error boundaries (`error.tsx`, `global-error.tsx`) are generic.
+
+## Business setup save
+
+- The owner edits profile, customer fields and rating questions in one view/edit form (`business/[id]/business-setup.tsx`) and saves with a single `PUT /api/v1/businesses/[id]/setup`.
+- The write runs in Postgres function `save_business_setup` (security invoker, RLS applies): atomic, order from array position, removed items soft-deleted.
+- Name, category and location are required; there is no slug field.
 
 ## Local / tests / migrations / prod ops
 

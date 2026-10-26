@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Eye, EyeOff } from "lucide-react";
 import { useState, type FormEvent } from "react";
@@ -107,7 +107,7 @@ export function LoginForm({
       router.push(destination);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign-in failed");
+      setError(authMessage(err));
     } finally {
       setPending(false);
     }
@@ -193,4 +193,15 @@ export function LoginForm({
       {error ? <Alert tone="danger">{error}</Alert> : null}
     </form>
   );
+}
+
+
+/** Supabase messages that are safe and useful to show. Everything else is generic. */
+function authMessage(err: unknown): string {
+  const message = err instanceof Error ? err.message : "";
+  if (/invalid login credentials/i.test(message)) return "Email or password is incorrect.";
+  if (/already registered/i.test(message)) return "An account with this email already exists. Try signing in.";
+  if (/email not confirmed/i.test(message)) return "Confirm your email first, then sign in.";
+  if (/password should be at least/i.test(message)) return "Use a longer password.";
+  return "Something went wrong, please try again.";
 }

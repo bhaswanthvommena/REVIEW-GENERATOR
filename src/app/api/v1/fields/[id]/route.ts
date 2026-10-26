@@ -1,5 +1,5 @@
-import { ZodError, z } from "zod";
-import { apiError, apiOk } from "@/lib/api/errors";
+﻿import { ZodError, z } from "zod";
+import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
 import { getBusinessForOwner } from "@/modules/businesses";
@@ -51,8 +51,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (error instanceof FieldNameTakenError) {
       return apiError(409, "field_name_taken", error.message);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(400, "update_failed", message);
+    return internalError(error, "update_failed");
   }
 }
 
@@ -80,7 +79,6 @@ export async function DELETE(request: Request, context: RouteContext) {
     if (error instanceof FieldNotFoundError) {
       return apiError(404, "not_found", error.message);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(400, "delete_failed", message);
+    return internalError(error, "delete_failed");
   }
 }

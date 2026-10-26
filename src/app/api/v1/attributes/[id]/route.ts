@@ -1,5 +1,5 @@
-import { ZodError, z } from "zod";
-import { apiError, apiOk } from "@/lib/api/errors";
+﻿import { ZodError, z } from "zod";
+import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import { createClient } from "@/lib/supabase/server";
 import { deleteAttribute, updateAttribute } from "@/modules/attributes";
 import { requireUser } from "@/modules/auth";
@@ -59,8 +59,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (error instanceof ZodError) {
       return apiError(400, "validation_error", "Invalid attribute payload", error.issues);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(400, "update_failed", message);
+    return internalError(error, "update_failed");
   }
 }
 
@@ -84,7 +83,6 @@ export async function DELETE(request: Request, context: RouteContext) {
     if (error instanceof ZodError) {
       return apiError(400, "validation_error", "Invalid delete payload", error.issues);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(400, "delete_failed", message);
+    return internalError(error, "delete_failed");
   }
 }

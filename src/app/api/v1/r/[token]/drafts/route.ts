@@ -1,6 +1,6 @@
 ﻿import { after } from "next/server";
 import { ZodError } from "zod";
-import { apiError, apiOk } from "@/lib/api/errors";
+import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import {
   enforceDraftRateLimits,
   getClientIp,
@@ -142,7 +142,6 @@ export async function POST(request: Request, context: RouteContext) {
         return apiError(503, "gemini_unconfigured", "AI drafting is not configured");
       }
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(500, "internal_error", message);
+    return internalError(error, "internal_error");
   }
 }

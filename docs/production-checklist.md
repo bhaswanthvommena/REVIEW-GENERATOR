@@ -18,6 +18,9 @@ Use this before promoting a staging build to production. Check items only after 
 - [ ] Upstash rate limits configured in production for draft generation.
 - [ ] Secrets only in host env (Vercel/Supabase); none committed.
 - [ ] Security headers / CSP present (see `next.config.ts`).
+- [ ] Errors shown to users are generic ("Something went wrong, please try again."); real errors appear only in server logs.
+- [ ] `save_business_setup` migration applied; saving the setup page updates profile, fields, and questions in one request.
+- [ ] `draft_timing` log lines checked on a real draft (retries should be 0 most of the time).
 - [ ] Auth redirect URLs set for local, preview, and production.
 
 ## Observability / legal

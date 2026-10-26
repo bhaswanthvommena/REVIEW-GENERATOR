@@ -1,5 +1,5 @@
-import { ZodError } from "zod";
-import { apiError, apiOk } from "@/lib/api/errors";
+﻿import { ZodError } from "zod";
+import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import { createClient } from "@/lib/supabase/server";
 import {
   AttributeCreateSchema,
@@ -26,8 +26,7 @@ export async function GET(_request: Request, context: RouteContext) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return apiError(401, "unauthorized", "Sign in required");
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(500, "internal_error", message);
+    return internalError(error, "internal_error");
   }
 }
 
@@ -51,7 +50,6 @@ export async function POST(request: Request, context: RouteContext) {
     if (error instanceof ZodError) {
       return apiError(400, "validation_error", "Invalid attribute payload", error.issues);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(400, "create_failed", message);
+    return internalError(error, "create_failed");
   }
 }

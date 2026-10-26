@@ -1,4 +1,4 @@
-import { apiError, apiOk } from "@/lib/api/errors";
+﻿import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import { createServiceClient } from "@/lib/supabase/server";
 import { recordAnalyticsEvent } from "@/modules/analytics";
 import {
@@ -46,7 +46,6 @@ export async function GET(request: Request, context: RouteContext) {
     if (error instanceof QrInactiveError) {
       return apiError(410, "qr_inactive", error.message);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(500, "internal_error", message);
+    return internalError(error, "internal_error");
   }
 }

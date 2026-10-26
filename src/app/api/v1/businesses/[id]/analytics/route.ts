@@ -1,4 +1,4 @@
-import { apiError, apiOk } from "@/lib/api/errors";
+﻿import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import { createClient } from "@/lib/supabase/server";
 import { getFunnelSummaryForBusiness } from "@/modules/analytics";
 import { requireUser } from "@/modules/auth";
@@ -34,7 +34,6 @@ export async function GET(request: Request, context: RouteContext) {
     if (error instanceof Error && error.message === "INVALID_DATE_RANGE") {
       return apiError(400, "invalid_date_range", "Invalid from/to date range");
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(500, "internal_error", message);
+    return internalError(error, "internal_error");
   }
 }

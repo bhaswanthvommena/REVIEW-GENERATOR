@@ -1,5 +1,5 @@
-import { z, ZodError } from "zod";
-import { apiError } from "@/lib/api/errors";
+﻿import { z, ZodError } from "zod";
+import { apiError, internalError } from "@/lib/api/errors";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
 import { getBusinessForOwner } from "@/modules/businesses";
@@ -50,7 +50,6 @@ export async function GET(request: Request, context: RouteContext) {
     if (error instanceof ZodError) {
       return apiError(400, "validation_error", "Invalid download request", error.issues);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(400, "download_failed", message);
+    return internalError(error, "download_failed");
   }
 }

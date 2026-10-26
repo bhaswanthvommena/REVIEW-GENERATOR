@@ -1,5 +1,5 @@
-import { ZodError } from "zod";
-import { apiError, apiOk } from "@/lib/api/errors";
+﻿import { ZodError } from "zod";
+import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
 import {
@@ -24,8 +24,7 @@ export async function GET(_request: Request, context: RouteContext) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return apiError(401, "unauthorized", "Sign in required");
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(500, "internal_error", message);
+    return internalError(error, "internal_error");
   }
 }
 
@@ -49,7 +48,6 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (error instanceof ZodError) {
       return apiError(400, "validation_error", "Invalid business payload", error.issues);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(400, "update_failed", message);
+    return internalError(error, "update_failed");
   }
 }

@@ -1,5 +1,5 @@
-import { ZodError } from "zod";
-import { apiError, apiOk } from "@/lib/api/errors";
+﻿import { ZodError } from "zod";
+import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
 import { getBusinessForOwner } from "@/modules/businesses";
@@ -27,8 +27,7 @@ export async function GET(_request: Request, context: RouteContext) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return apiError(401, "unauthorized", "Sign in required");
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(500, "internal_error", message);
+    return internalError(error, "internal_error");
   }
 }
 
@@ -55,7 +54,6 @@ export async function POST(request: Request, context: RouteContext) {
     if (error instanceof FieldNameTakenError) {
       return apiError(409, "field_name_taken", error.message);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(400, "create_failed", message);
+    return internalError(error, "create_failed");
   }
 }

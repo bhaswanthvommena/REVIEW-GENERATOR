@@ -1,5 +1,5 @@
-import { ZodError } from "zod";
-import { apiError, apiOk } from "@/lib/api/errors";
+﻿import { ZodError } from "zod";
+import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import { createServiceClient } from "@/lib/supabase/server";
 import {
   PublicAnalyticsEventSchema,
@@ -75,7 +75,6 @@ export async function POST(request: Request, context: RouteContext) {
     if (error instanceof ZodError) {
       return apiError(400, "validation_error", "Invalid event payload", error.issues);
     }
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return apiError(500, "internal_error", message);
+    return internalError(error, "internal_error");
   }
 }

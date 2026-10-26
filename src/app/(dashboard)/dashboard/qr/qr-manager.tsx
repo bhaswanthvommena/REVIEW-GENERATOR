@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { toUserMessage, UserFacingError } from "@/lib/api/client";
 
 export type QrCodeRow = {
   id: string;
@@ -46,7 +47,7 @@ export function QrManager({
       error?: { message: string };
     };
     if (!response.ok) {
-      throw new Error(body.error?.message ?? "Failed to load QR codes");
+      throw new UserFacingError(body.error?.message ?? "Failed to load QR codes");
     }
     setQrCodes(body.qrCodes ?? []);
   }, [businessId]);
@@ -63,13 +64,13 @@ export function QrManager({
       });
       const body = (await response.json()) as { error?: { message: string } };
       if (!response.ok) {
-        throw new Error(body.error?.message ?? "Create failed");
+        throw new UserFacingError(body.error?.message ?? "Create failed");
       }
       setLabel("");
       await refresh();
       push("QR code created");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Create failed");
+      setError(toUserMessage(err));
     } finally {
       setPending(false);
     }
@@ -83,7 +84,7 @@ export function QrManager({
     });
     if (!response.ok) {
       const body = (await response.json()) as { error?: { message: string } };
-      throw new Error(body.error?.message ?? "Deactivate failed");
+      throw new UserFacingError(body.error?.message ?? "Deactivate failed");
     }
     await refresh();
     push("QR code turned off");
@@ -217,7 +218,7 @@ export function QrManager({
           try {
             await onDeactivate(pendingDeactivate);
           } catch (err) {
-            setError(err instanceof Error ? err.message : "Deactivate failed");
+            setError(toUserMessage(err));
           }
         }}
       />

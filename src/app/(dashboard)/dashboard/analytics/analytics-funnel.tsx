@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, type FormEvent } from "react";
 import type { FunnelCounts, FunnelSummary } from "@/modules/analytics";
@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { StatCard } from "@/components/ui/stat-card";
+import { toUserMessage, UserFacingError } from "@/lib/api/client";
 
 type FunnelResponse = {
   funnel?: FunnelSummary;
@@ -73,14 +74,14 @@ export function AnalyticsFunnel({
       );
       const body = (await response.json()) as FunnelResponse;
       if (!response.ok || !body.funnel) {
-        throw new Error(body.error?.message ?? "Failed to load analytics");
+        throw new UserFacingError(body.error?.message ?? "Failed to load analytics");
       }
       setCounts(body.funnel.counts);
       setTotalEvents(body.funnel.totalEvents);
       setFrom(body.funnel.from);
       setTo(body.funnel.to);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load analytics");
+      setError(toUserMessage(err));
     } finally {
       setLoading(false);
     }
