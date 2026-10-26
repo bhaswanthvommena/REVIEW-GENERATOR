@@ -3,7 +3,7 @@ import { LegalLayout } from "@/components/marketing/legal-layout";
 
 export const metadata: Metadata = {
   title: "Terms",
-  description: "Terms of use stub for the Review Generator MVP.",
+  description: "Terms of use stub for the Ventry MVP.",
 };
 
 const sections = [
@@ -24,7 +24,7 @@ export default function TermsPage() {
       <section id="service" className="scroll-mt-24">
         <h2 className="text-xl font-semibold tracking-tight">The service</h2>
         <p className="mt-2">
-          Review Generator helps a customer draft a review from their own ratings and comment. They
+          Ventry helps a customer draft a review from their own ratings and comment. They
           must read the draft and correct anything that is not true before posting it.
         </p>
       </section>

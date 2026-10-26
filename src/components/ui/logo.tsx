@@ -26,7 +26,7 @@ export function Logo({
           />
         </svg>
       </span>
-      {compact ? <span className="sr-only">Review Generator</span> : "Review Generator"}
+      {compact ? <span className="sr-only">Ventry</span> : "Ventry"}
     </Link>
   );
 }

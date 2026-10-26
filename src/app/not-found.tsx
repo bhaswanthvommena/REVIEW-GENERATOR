@@ -7,7 +7,7 @@ export default function NotFound() {
       <Logo />
       <h1 className="mt-8 text-3xl font-semibold tracking-tight">Page not found</h1>
       <p className="mt-2 text-muted-foreground">
-        That link does not match anything in Review Generator.
+        That link does not match anything in Ventry.
       </p>
       <Link
         href="/"

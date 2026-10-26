@@ -32,7 +32,7 @@ export function SiteHeader() {
           <Link href="/login?mode=signin" className={buttonVariants({ variant: "ghost" })}>
             Sign in
           </Link>
-          <Link href="/login" className={buttonVariants()}>
+          <Link href="/login?mode=signup" className={buttonVariants()}>
             Get started
           </Link>
         </div>
@@ -68,7 +68,7 @@ export function SiteHeader() {
             <Link href="/login?mode=signin" className={buttonVariants({ variant: "outline", size: "lg" })}>
               Sign in
             </Link>
-            <Link href="/login" className={buttonVariants({ size: "lg" })}>
+            <Link href="/login?mode=signup" className={buttonVariants({ size: "lg" })}>
               Get started
             </Link>
           </div>

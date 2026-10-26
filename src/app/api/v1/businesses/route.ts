@@ -7,6 +7,7 @@ import {
   createBusiness,
   listBusinessesForOwner,
 } from "@/modules/businesses";
+import { replaceActiveQrCode } from "@/modules/qr";
 
 export async function GET() {
   try {
@@ -29,6 +30,11 @@ export async function POST(request: Request) {
     const json: unknown = await request.json();
     const input = BusinessCreateSchema.parse(json);
     const business = await createBusiness(supabase, user.id, input);
+    try {
+      await replaceActiveQrCode(supabase, business.id);
+    } catch (qrError) {
+      console.error("qr_create_failed", qrError);
+    }
     return apiOk({ business }, 201);
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {

@@ -2,7 +2,7 @@
 
 import { GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/toast";
+import { useUnsavedChanges } from "@/components/dashboard/unsaved-changes";
 import { cn } from "@/lib/cn";
 import {
   ProfileFields,
@@ -88,6 +89,7 @@ export function BusinessSetup({
 }) {
   const router = useRouter();
   const { push } = useToast();
+  const { setGuard } = useUnsavedChanges();
   const baseline = useMemo(() => toDraft(initial), [initial]);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Draft>(baseline);
@@ -123,7 +125,7 @@ export function BusinessSetup({
     setEditing(false);
   }
 
-  async function save() {
+  async function save(): Promise<boolean> {
     const problems = validateProfile(draft.profile);
     const bad = new Set<string>();
     for (const item of [...draft.fields, ...draft.attributes]) {
@@ -137,15 +139,15 @@ export function BusinessSetup({
 
     if (Object.keys(problems).length > 0) {
       setError("Fill in the required fields marked with *.");
-      return;
+      return false;
     }
     if (bad.size > 0) {
       setError("Every field and question needs its own name.");
-      return;
+      return false;
     }
     if (!draft.attributes.some((item) => item.isActive)) {
       setError("Keep at least one rating question shown.");
-      return;
+      return false;
     }
 
     setPending(true);
@@ -184,18 +186,45 @@ export function BusinessSetup({
             ? (body?.error?.message ?? GENERIC_ERROR)
             : GENERIC_ERROR,
         );
-        return;
+        return false;
       }
 
+      const body = (await response.json().catch(() => null)) as {
+        qrReplaced?: boolean;
+      } | null;
       push("Saved");
       setEditing(false);
+      if (body?.qrReplaced) {
+        router.replace(`/dashboard/business/${businessId}?qr=1`);
+      }
       router.refresh();
+      return true;
     } catch {
       setError(GENERIC_ERROR);
+      return false;
     } finally {
       setPending(false);
     }
   }
+
+  const saveRef = useRef(save);
+  const discardRef = useRef(cancel);
+  useEffect(() => {
+    saveRef.current = save;
+    discardRef.current = cancel;
+  });
+
+  useEffect(() => {
+    if (!dirty) {
+      setGuard(null);
+      return;
+    }
+    setGuard({
+      save: () => saveRef.current(),
+      discard: () => discardRef.current(),
+    });
+    return () => setGuard(null);
+  }, [dirty, setGuard]);
 
   const shown = editing ? draft : baseline;
 
@@ -466,10 +495,19 @@ function ItemsCard({
                       title={coarse ? undefined : "Double-click to rename"}
                       className={cn(
                         "min-h-10 border-transparent bg-transparent px-2 font-medium shadow-none hover:border-border focus-visible:border-border",
-                        !coarse && renamingKey !== item.key && "cursor-text select-none",
+                        !coarse && renamingKey !== item.key && "cursor-default select-none",
+                        !coarse &&
+                          renamingKey === item.key &&
+                          "cursor-text border-border bg-white text-zinc-950 caret-zinc-950 shadow-sm",
                         badKeys.has(item.key) && "border-danger",
                       )}
-                      onDoubleClick={() => setRenamingKey(item.key)}
+                      onDoubleClick={(event) => {
+                        if (coarse) return;
+                        const input = event.currentTarget;
+                        input.readOnly = false;
+                        setRenamingKey(item.key);
+                        input.focus();
+                      }}
                       onBlur={() => setRenamingKey(null)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === "Escape") {

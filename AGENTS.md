@@ -8,7 +8,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# Review Generator — Agent Guide
+# Ventry — Agent Guide
 
 Modular monolith: Next.js App Router + Supabase + Gemini API + Upstash + Sentry (Vercel).
 

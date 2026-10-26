@@ -70,7 +70,7 @@ export default function Home() {
                 You never post for them.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link href="/login" className={buttonVariants({ size: "lg", className: "sm:w-auto" })}>
+                <Link href="/login?mode=signup" className={buttonVariants({ size: "lg", className: "sm:w-auto" })}>
                   Get started
                 </Link>
                 <a href="#how" className={buttonVariants({ variant: "outline", size: "lg", className: "sm:w-auto" })}>
@@ -138,7 +138,7 @@ export default function Home() {
               <h2 className="text-3xl font-semibold tracking-tight">Put your first QR on the counter</h2>
               <p className="mt-2 text-muted-foreground">Create an owner account. Customers never do.</p>
             </div>
-            <Link href="/login" className={buttonVariants({ size: "lg", className: "sm:w-auto" })}>
+            <Link href="/login?mode=signup" className={buttonVariants({ size: "lg", className: "sm:w-auto" })}>
               Get started
             </Link>
           </div>

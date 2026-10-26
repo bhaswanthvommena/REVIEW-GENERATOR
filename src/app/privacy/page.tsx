@@ -3,7 +3,7 @@ import { LegalLayout } from "@/components/marketing/legal-layout";
 
 export const metadata: Metadata = {
   title: "Privacy",
-  description: "Privacy stub for the Review Generator MVP.",
+  description: "Privacy stub for the Ventry MVP.",
 };
 
 const sections = [

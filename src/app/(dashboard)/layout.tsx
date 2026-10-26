@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/dashboard/app-shell";
+import { UnsavedChangesProvider } from "@/components/dashboard/unsaved-changes";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/modules/auth";
@@ -56,12 +57,14 @@ async function DashboardSession({
   const setupHref = business ? `/dashboard/business/${business.id}` : "/dashboard/business";
 
   return (
-    <AppShell
-      setupHref={setupHref}
-      email={user.email ?? user.id}
-      businessName={business?.name ?? null}
-    >
-      {children}
-    </AppShell>
+    <UnsavedChangesProvider>
+      <AppShell
+        setupHref={setupHref}
+        email={user.email ?? user.id}
+        businessName={business?.name ?? null}
+      >
+        {children}
+      </AppShell>
+    </UnsavedChangesProvider>
   );
 }

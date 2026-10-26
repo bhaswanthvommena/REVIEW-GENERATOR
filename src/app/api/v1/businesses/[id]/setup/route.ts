@@ -7,7 +7,10 @@ import {
   getBusinessForOwner,
   saveBusinessSetup,
   SetupConflictError,
+  type Business,
+  type BusinessSetupInput,
 } from "@/modules/businesses";
+import { listQrCodesForBusiness, replaceActiveQrCode } from "@/modules/qr";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -24,8 +27,15 @@ export async function PUT(request: Request, context: RouteContext) {
 
     const json: unknown = await request.json();
     const input = BusinessSetupSchema.parse(json);
+    const profileChanged = profileDiffers(existing, input);
     await saveBusinessSetup(supabase, id, input);
-    return apiOk({ ok: true });
+
+    const codes = await listQrCodesForBusiness(supabase, id);
+    const qrReplaced = profileChanged || !codes.some((code) => code.is_active);
+    if (qrReplaced) {
+      await replaceActiveQrCode(supabase, id);
+    }
+    return apiOk({ ok: true, qrReplaced });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return apiError(401, "unauthorized", "Sign in required");
@@ -44,4 +54,19 @@ export async function PUT(request: Request, context: RouteContext) {
     console.error("save_business_setup failed", error);
     return apiError(500, "save_failed", "Something went wrong, please try again.");
   }
+}
+
+function blank(value: string | null | undefined): string {
+  return (value ?? "").trim();
+}
+
+/** True when the printed-code details (name, place, link) actually changed. */
+function profileDiffers(existing: Business, input: BusinessSetupInput): boolean {
+  return (
+    blank(existing.name) !== blank(input.name) ||
+    blank(existing.category) !== blank(input.category) ||
+    blank(existing.location) !== blank(input.location) ||
+    blank(existing.description) !== blank(input.description) ||
+    blank(existing.google_review_url) !== blank(input.googleReviewUrl)
+  );
 }

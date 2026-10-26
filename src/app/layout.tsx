@@ -18,17 +18,17 @@ const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: {
-    default: "Review Generator",
-    template: "%s · Review Generator",
+    default: "Ventry",
+    template: "%s · Ventry",
   },
   description:
     "Help local customers write honest Google reviews. They scan a QR, rate the visit, and copy an AI draft — you never post for them.",
   openGraph: {
-    title: "Review Generator",
+    title: "Ventry",
     description:
       "QR feedback that becomes an editable Google review draft. No gating. No auto-post.",
     type: "website",
-    siteName: "Review Generator",
+    siteName: "Ventry",
   },
 };
 

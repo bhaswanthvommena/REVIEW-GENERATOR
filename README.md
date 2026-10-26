@@ -1,4 +1,4 @@
-# Review Generator
+# Ventry
 
 AI-assisted review drafts for local businesses: print/share a QR → customer rates attributes + optional comment → Gemini drafts a review → customer copies and continues to the business’s Google review link.
 

@@ -33,20 +33,24 @@ export default async function QrPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="QR codes"
-        description={`For ${business.name}. The card is ready to print. Download the PNG for a sharper copy.`}
+        title="QR code"
+        description={`For ${business.name}. One code per business. Download the PNG for a sharper print.`}
       />
       <QrManager
         businessId={business.id}
         businessName={business.name}
-        initial={qrCodes.map((qr) => ({
-          id: qr.id,
-          label: qr.label,
-          is_active: qr.is_active,
-          publicUrl: buildPublicFeedbackUrl(qr.public_token),
-          created_at: qr.created_at,
-          revoked_at: qr.revoked_at,
-        }))}
+        initial={(() => {
+          const qr = qrCodes.find((code) => code.is_active);
+          if (!qr) return null;
+          return {
+            id: qr.id,
+            label: qr.label,
+            is_active: qr.is_active,
+            publicUrl: buildPublicFeedbackUrl(qr.public_token),
+            created_at: qr.created_at,
+            revoked_at: qr.revoked_at,
+          };
+        })()}
       />
     </div>
   );

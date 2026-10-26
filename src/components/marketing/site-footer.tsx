@@ -12,7 +12,7 @@ export function SiteFooter() {
           </p>
         </div>
         <nav className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
-          <Link href="/login" className="hover:text-foreground">
+          <Link href="/login?mode=signin" className="hover:text-foreground">
             Sign in
           </Link>
           <Link href="/privacy" className="hover:text-foreground">

@@ -2,15 +2,12 @@
 
 import { Copy, Download, ExternalLink } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Field } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { toUserMessage, UserFacingError } from "@/lib/api/client";
 
@@ -30,45 +27,31 @@ export function QrManager({
 }: {
   businessId: string;
   businessName: string;
-  initial: QrCodeRow[];
+  initial: QrCodeRow | null;
 }) {
   const { push } = useToast();
-  const [qrCodes, setQrCodes] = useState(initial);
-  const [label, setLabel] = useState("");
+  const [qr, setQr] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [pendingDeactivate, setPendingDeactivate] = useState<QrCodeRow | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [confirmReplace, setConfirmReplace] = useState(false);
 
-  const refresh = useCallback(async () => {
-    const response = await fetch(`/api/v1/businesses/${businessId}/qr-codes`);
-    const body = (await response.json()) as {
-      qrCodes?: QrCodeRow[];
-      error?: { message: string };
-    };
-    if (!response.ok) {
-      throw new UserFacingError(body.error?.message ?? "Failed to load QR codes");
-    }
-    setQrCodes(body.qrCodes ?? []);
-  }, [businessId]);
-
-  async function onCreate(event: FormEvent) {
-    event.preventDefault();
+  async function onReplace() {
     setPending(true);
     setError(null);
     try {
       const response = await fetch(`/api/v1/businesses/${businessId}/qr-codes`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: label.trim() || null }),
       });
-      const body = (await response.json()) as { error?: { message: string } };
-      if (!response.ok) {
-        throw new UserFacingError(body.error?.message ?? "Create failed");
+      const body = (await response.json()) as {
+        qrCode?: QrCodeRow;
+        error?: { message: string };
+      };
+      if (!response.ok || !body.qrCode) {
+        throw new UserFacingError(body.error?.message ?? "Could not generate a QR code");
       }
-      setLabel("");
-      await refresh();
-      push("QR code created");
+      setQr(body.qrCode);
+      push(qr ? "New QR code ready. The old one no longer works." : "QR code ready");
     } catch (err) {
       setError(toUserMessage(err));
     } finally {
@@ -76,26 +59,13 @@ export function QrManager({
     }
   }
 
-  async function onDeactivate(qr: QrCodeRow) {
-    const response = await fetch(`/api/v1/qr-codes/${qr.id}/deactivate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessId }),
-    });
-    if (!response.ok) {
-      const body = (await response.json()) as { error?: { message: string } };
-      throw new UserFacingError(body.error?.message ?? "Deactivate failed");
-    }
-    await refresh();
-    push("QR code turned off");
-  }
-
-  async function onCopy(qr: QrCodeRow) {
+  async function onCopy() {
+    if (!qr) return;
     try {
       await navigator.clipboard.writeText(qr.publicUrl);
-      setCopiedId(qr.id);
+      setCopied(true);
       push("Link copied");
-      window.setTimeout(() => setCopiedId(null), 2000);
+      window.setTimeout(() => setCopied(false), 2000);
     } catch {
       setError("Could not copy the link. Select it and copy.");
     }
@@ -103,124 +73,87 @@ export function QrManager({
 
   return (
     <div className="space-y-6">
-      <form onSubmit={onCreate} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <Field label="Label" htmlFor="qr-label" hint="Optional. For example, front desk." className="flex-1">
-          <Input
-            id="qr-label"
-            value={label}
-            placeholder="Front desk"
-            aria-describedby="qr-label-hint"
-            onChange={(event) => setLabel(event.target.value)}
-          />
-        </Field>
-        <Button type="submit" loading={pending} className="sm:w-auto">
-          Create QR
-        </Button>
-      </form>
-
       {error ? <Alert tone="danger">{error}</Alert> : null}
 
-      {qrCodes.length === 0 ? (
-        <EmptyState
-          title="No QR codes yet"
-          description="Create one to print or share. Customers open it on their phone."
-        />
+      {qr ? (
+        <Card>
+          <CardContent className="grid gap-4 md:grid-cols-[14rem_minmax(0,1fr)] md:items-start">
+            <div className="mx-auto w-full max-w-xs rounded-2xl border border-border bg-white p-5 text-center text-zinc-900 shadow-sm md:mx-0">
+              <p className="text-sm font-semibold">{businessName}</p>
+              <Image
+                src={`/api/v1/qr-codes/${qr.id}/download?businessId=${businessId}&format=png`}
+                alt={`QR code for ${businessName}`}
+                width={180}
+                height={180}
+                unoptimized
+                className="mx-auto mt-3 size-44 rounded-lg bg-white"
+              />
+              <p className="mt-3 text-xs font-medium tracking-wide uppercase">Scan to review</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="break-all font-mono text-xs text-muted-foreground">{qr.publicUrl}</p>
+              <Button type="button" onClick={() => void onCopy()}>
+                <Copy className="size-4" aria-hidden="true" />
+                {copied ? "Link copied" : "Copy link"}
+              </Button>
+              <a
+                href={qr.publicUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ variant: "secondary", size: "lg" })}
+              >
+                <ExternalLink className="size-4" aria-hidden="true" />
+                Preview
+              </a>
+              <div className="flex flex-wrap gap-3 text-sm">
+                <a
+                  className="inline-flex min-h-11 items-center gap-1 font-medium underline-offset-4 hover:underline"
+                  href={`/api/v1/qr-codes/${qr.id}/download?businessId=${businessId}&format=png`}
+                >
+                  <Download className="size-4" aria-hidden="true" />
+                  Download PNG
+                </a>
+                <a
+                  className="inline-flex min-h-11 items-center font-medium underline-offset-4 hover:underline"
+                  href={`/api/v1/qr-codes/${qr.id}/download?businessId=${businessId}&format=svg`}
+                >
+                  Download SVG
+                </a>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="self-start"
+                onClick={() => setConfirmReplace(true)}
+              >
+                Generate a new QR code
+              </Button>
+              <p className="text-sm text-muted-foreground">
+                Use this if the current code does not work. The old code is replaced and stops opening the page.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
-        <ul className="grid gap-4 xl:grid-cols-2">
-          {qrCodes.map((qr) => (
-            <li key={qr.id}>
-              <Card>
-                <CardContent className="grid gap-4 md:grid-cols-[14rem_minmax(0,1fr)] md:items-start">
-                  <div className="flex items-start justify-between gap-3 md:col-span-2">
-                    <div className="min-w-0">
-                      <p className="font-medium">{qr.label ?? "Untitled QR"}</p>
-                      <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
-                        {qr.publicUrl}
-                      </p>
-                    </div>
-                    <Badge tone={qr.is_active ? "success" : "muted"}>
-                      {qr.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                  </div>
-
-                  {qr.is_active ? (
-                    <div className="mx-auto w-full max-w-xs rounded-2xl border border-border bg-white p-5 text-center text-zinc-900 shadow-sm">
-                      <p className="text-sm font-semibold">{businessName}</p>
-                      <Image
-                        src={`/api/v1/qr-codes/${qr.id}/download?businessId=${businessId}&format=png`}
-                        alt={`QR code${qr.label ? ` for ${qr.label}` : ""}`}
-                        width={180}
-                        height={180}
-                        unoptimized
-                        className="mx-auto mt-3 size-44 rounded-lg bg-white"
-                      />
-                      <p className="mt-3 text-xs font-medium tracking-wide uppercase">
-                        Scan to review
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {qr.is_active ? (
-                    <div className="flex flex-col gap-2">
-                      <Button type="button" onClick={() => void onCopy(qr)}>
-                        <Copy className="size-4" aria-hidden="true" />
-                        {copiedId === qr.id ? "Link copied" : "Copy link"}
-                      </Button>
-                      <a
-                        href={qr.publicUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={buttonVariants({ variant: "secondary", size: "lg" })}
-                      >
-                        <ExternalLink className="size-4" aria-hidden="true" />
-                        Preview
-                      </a>
-                      <div className="flex flex-wrap gap-3 text-sm">
-                        <a
-                          className="inline-flex min-h-11 items-center gap-1 font-medium underline-offset-4 hover:underline"
-                          href={`/api/v1/qr-codes/${qr.id}/download?businessId=${businessId}&format=png`}
-                        >
-                          <Download className="size-4" aria-hidden="true" />
-                          Download PNG
-                        </a>
-                        <a
-                          className="inline-flex min-h-11 items-center font-medium underline-offset-4 hover:underline"
-                          href={`/api/v1/qr-codes/${qr.id}/download?businessId=${businessId}&format=svg`}
-                        >
-                          Download SVG
-                        </a>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="self-start text-muted-foreground"
-                        onClick={() => setPendingDeactivate(qr)}
-                      >
-                        Deactivate
-                      </Button>
-                    </div>
-                  ) : null}
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ul>
+        <EmptyState
+          title="No QR code yet"
+          description="Saving your business details creates one. You can also generate it here."
+          action={
+            <Button type="button" onClick={() => void onReplace()} loading={pending}>
+              Generate QR code
+            </Button>
+          }
+        />
       )}
 
       <ConfirmDialog
-        open={pendingDeactivate !== null}
-        title="Turn off this QR?"
-        description="The printed code will stop opening the feedback page. Create a new one if you need a replacement."
-        confirmLabel="Deactivate"
-        onClose={() => setPendingDeactivate(null)}
-        onConfirm={async () => {
-          if (!pendingDeactivate) return;
-          try {
-            await onDeactivate(pendingDeactivate);
-          } catch (err) {
-            setError(toUserMessage(err));
-          }
-        }}
+        open={confirmReplace}
+        title="Replace this QR code?"
+        description="A new code is created and this one stops working. Anything already printed will no longer open the feedback page."
+        confirmLabel="Generate new code"
+        tone="primary"
+        onClose={() => setConfirmReplace(false)}
+        onConfirm={() => onReplace()}
       />
     </div>
   );

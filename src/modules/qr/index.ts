@@ -9,6 +9,7 @@ export { renderQr, renderQrPngDataUrl, renderQrSvg, type QrFormat } from "./rend
 export {
   createQrCode,
   deactivateQrCode,
+  replaceActiveQrCode,
   getQrCodeForOwner,
   listQrCodesForBusiness,
   resolveActiveQrByToken,

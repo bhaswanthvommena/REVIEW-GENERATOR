@@ -10,10 +10,14 @@ import { listFieldsForBusiness } from "@/modules/fields";
 import { listQrCodesForBusiness } from "@/modules/qr";
 import { BusinessSetup, type SetupInitial } from "./business-setup";
 
-type PageProps = { params: Promise<{ id: string }> };
+type PageProps = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ qr?: string }>;
+};
 
-export default async function BusinessDetailPage({ params }: PageProps) {
+export default async function BusinessDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
+  const { qr } = await searchParams;
   const supabase = await createClient();
   const user = await requireUser(supabase);
   const business = await getBusinessForOwner(supabase, id, user.id);
@@ -63,6 +67,11 @@ export default async function BusinessDetailPage({ params }: PageProps) {
           </Link>
         }
       />
+      {qr === "1" ? (
+        <p className="text-sm text-muted-foreground">
+          A new QR code was generated. Get it from the QR codes tab.
+        </p>
+      ) : null}
       {/* Remount with fresh drafts whenever the saved data changes. */}
       <BusinessSetup key={JSON.stringify(initial)} businessId={business.id} initial={initial} />
     </div>

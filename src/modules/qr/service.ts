@@ -77,6 +77,29 @@ export async function getQrCodeForOwner(
   return (data as QrCode | null) ?? null;
 }
 
+/**
+ * One QR per business. Turns off every active code, then creates a fresh one.
+ * Printed copies of the old code stop opening the feedback page.
+ */
+export async function replaceActiveQrCode(
+  supabase: SupabaseClient,
+  businessId: string,
+): Promise<QrCode & { publicUrl: string }> {
+  const { error } = await supabase
+    .from("qr_codes")
+    .update({
+      is_active: false,
+      revoked_at: new Date().toISOString(),
+    })
+    .eq("business_id", businessId)
+    .eq("is_active", true);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return createQrCode(supabase, businessId);
+}
+
 export async function deactivateQrCode(
   supabase: SupabaseClient,
   qrCodeId: string,

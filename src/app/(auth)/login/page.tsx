@@ -46,9 +46,10 @@ export default async function LoginPage({
           </p>
           <div className="mt-8">
             <LoginForm
+              key={params.mode ?? "signup"}
               nextPath={nextPath}
               authError={params.error === "auth"}
-              initialMode={params.mode}
+              initialMode={params.mode ?? "signup"}
             />
           </div>
         </div>
