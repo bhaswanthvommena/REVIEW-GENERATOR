@@ -1,6 +1,8 @@
-export {
+﻿export {
   BusinessCreateSchema,
   BusinessUpdateSchema,
+  BusinessSetupSchema,
+  type BusinessSetupInput,
   type BusinessCreateInput,
   type BusinessUpdateInput,
 } from "./schemas";
@@ -10,4 +12,6 @@ export {
   getBusinessForOwner,
   listBusinessesForOwner,
   updateBusiness,
+  saveBusinessSetup,
+  SetupConflictError,
 } from "./service";

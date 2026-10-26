@@ -1,3 +1,4 @@
+﻿import { after } from "next/server";
 import { ZodError } from "zod";
 import { apiError, apiOk } from "@/lib/api/errors";
 import {
@@ -8,6 +9,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import {
   createDraftForSession,
   DraftCreateSchema,
+  markSessionDrafted,
   DraftGenerationError,
 } from "@/modules/ai";
 import { recordAnalyticsEvent } from "@/modules/analytics";
@@ -21,6 +23,7 @@ import {
 type RouteContext = { params: Promise<{ token: string }> };
 
 export async function POST(request: Request, context: RouteContext) {
+  const tStart = performance.now();
   try {
     const { token } = await context.params;
     if (!isValidPublicTokenShape(token)) {
@@ -53,38 +56,46 @@ export async function POST(request: Request, context: RouteContext) {
       return response;
     }
 
-    const { data: session } = await service
-      .from("feedback_sessions")
-      .select("id, business_id, qr_code_id, status")
-      .eq("id", input.feedbackSessionId)
-      .maybeSingle();
-
-    if (
-      !session ||
-      session.business_id !== resolved.businessId ||
-      session.qr_code_id !== resolved.qrCodeId
-    ) {
-      return apiError(400, "session_invalid", "Session does not match this QR.");
-    }
-
-    const { draft, generated } = await createDraftForSession(
+    const tResolved = performance.now();
+    const { draft, generated, sessionId, timings } = await createDraftForSession(
       service,
       input.feedbackSessionId,
-      { regenerate: input.regenerate },
+      {
+        regenerate: input.regenerate,
+        expect: {
+          businessId: resolved.businessId,
+          qrCodeId: resolved.qrCodeId,
+        },
+      },
     );
 
-    await recordAnalyticsEvent(service, {
-      businessId: resolved.businessId,
-      qrCodeId: resolved.qrCodeId,
-      feedbackSessionId: session.id,
-      eventType: "draft_generated",
-      props: {
-        regenerate: Boolean(input.regenerate),
-        model: generated.model,
-        promptVersion: generated.promptVersion,
-      },
+    // The customer does not need to wait for bookkeeping.
+    after(async () => {
+      await Promise.allSettled([
+        markSessionDrafted(service, sessionId),
+        recordAnalyticsEvent(service, {
+          businessId: resolved.businessId,
+          qrCodeId: resolved.qrCodeId,
+          feedbackSessionId: sessionId,
+          eventType: "draft_generated",
+          props: {
+            regenerate: Boolean(input.regenerate),
+            model: generated.model,
+            promptVersion: generated.promptVersion,
+          },
+        }),
+      ]);
     });
 
+    // Stage timings only; no tokens, ids, or customer text.
+    console.info("draft_timing", {
+      ...timings,
+      beforeDraftMs: Math.round(tResolved - tStart),
+      totalMs: Math.round(performance.now() - tStart),
+      retries: generated.validation.retries,
+      regenerate: Boolean(input.regenerate),
+      model: generated.model,
+    });
     return apiOk(
       {
         draft: {
@@ -114,6 +125,9 @@ export async function POST(request: Request, context: RouteContext) {
       return apiError(502, "draft_failed", error.message);
     }
     if (error instanceof Error) {
+      if (error.message === "SESSION_MISMATCH") {
+        return apiError(400, "session_invalid", "Session does not match this QR.");
+      }
       if (error.message === "SESSION_NOT_FOUND") {
         return apiError(404, "session_not_found", "Feedback session not found");
       }

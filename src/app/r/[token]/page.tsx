@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+﻿import { Suspense } from "react";
 import { PublicFeedbackFlow } from "./public-feedback-flow";
 
 export const instant = false;
@@ -9,7 +9,7 @@ export default function PublicFeedbackPage({ params }: PageProps) {
   return (
     <Suspense
       fallback={
-        <main className="mx-auto flex min-h-full w-full max-w-lg flex-col px-5 pt-8 pb-8">
+        <main className="mx-auto flex min-h-full w-full max-w-lg md:max-w-xl flex-col px-5 pt-8 pb-8 md:px-8 md:pt-14 md:pb-14">
           <p className="text-sm text-muted-foreground">Opening feedback…</p>
         </main>
       }
@@ -22,7 +22,7 @@ export default function PublicFeedbackPage({ params }: PageProps) {
 async function PublicFeedback({ params }: PageProps) {
   const { token } = await params;
   return (
-    <main className="bg-mesh mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col self-center px-5 pt-8 pb-8">
+    <main className="bg-mesh mx-auto flex min-h-full w-full max-w-lg md:max-w-xl flex-1 flex-col self-center px-5 pt-8 pb-8 md:px-8 md:pt-14 md:pb-14">
       <PublicFeedbackFlow token={token} />
     </main>
   );

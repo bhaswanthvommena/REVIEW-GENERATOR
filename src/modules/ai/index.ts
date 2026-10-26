@@ -21,6 +21,7 @@ export {
 export {
   createDraftForSession,
   loadSessionContextForDraft,
+  markSessionDrafted,
   persistReviewDraft,
   type ReviewDraftRow,
 } from "./service";

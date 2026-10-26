@@ -1,9 +1,10 @@
-export type Business = {
+﻿export type Business = {
   id: string;
   owner_id: string;
   name: string;
   slug: string | null;
   category: string | null;
+  location: string | null;
   description: string | null;
   google_review_url: string;
   plan: string;

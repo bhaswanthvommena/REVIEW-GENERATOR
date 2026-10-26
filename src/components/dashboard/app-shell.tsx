@@ -1,13 +1,15 @@
-"use client";
+﻿"use client";
 
 import {
   BarChart3,
   LayoutDashboard,
   Menu,
   PanelLeftClose,
+  PanelLeftOpen,
   QrCode,
   Settings,
   Store,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -69,7 +71,17 @@ export function AppShell({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [menuOpen]);
 
   useEffect(() => {
     if (!accountOpen) return;
@@ -121,17 +133,15 @@ export function AppShell({
         <div className="p-2">
           <button
             type="button"
-            className={cn(buttonVariants({ variant: "ghost", size: "md" }), "w-full", collapsed && "px-0")}
+            className={cn(buttonVariants({ variant: "ghost", size: "icon" }), collapsed ? "mx-auto" : "ml-auto")}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             onClick={() => setCollapsed((current) => !current)}
           >
             {collapsed ? (
-              <Menu className="size-4" aria-hidden="true" />
+              <PanelLeftOpen className="size-5" aria-hidden="true" />
             ) : (
-              <>
-                <PanelLeftClose className="size-4" aria-hidden="true" />
-                Collapse
-              </>
+              <PanelLeftClose className="size-5" aria-hidden="true" />
             )}
           </button>
         </div>
@@ -139,11 +149,22 @@ export function AppShell({
 
       <div className="flex min-h-full min-w-0 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-md md:px-8">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">
-              {businessName ?? "No business yet"}
-            </p>
-            <p className="truncate text-xs text-muted-foreground md:hidden">{email}</p>
+          <div className="flex min-w-0 items-center gap-1">
+            <button
+              type="button"
+              className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "-ml-2 md:hidden")}
+              aria-label="Open menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen(true)}
+            >
+              <Menu className="size-5" aria-hidden="true" />
+            </button>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">
+                {businessName ?? "No business yet"}
+              </p>
+              <p className="truncate text-xs text-muted-foreground md:hidden">{email}</p>
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />
@@ -185,38 +206,65 @@ export function AppShell({
             </div>
           </div>
         </header>
-        <div className="flex-1 px-4 py-6 pb-28 md:px-8 md:pb-10">{children}</div>
+        <div className="flex-1 px-4 py-6 pb-10 md:px-8 lg:px-10">
+          <div className="mx-auto w-full max-w-6xl">{children}</div>
+        </div>
       </div>
 
-      <nav
-        aria-label="Owner"
-        className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card pb-[env(safe-area-inset-bottom)] md:hidden"
-      >
-        <ul className="grid grid-cols-4">
-          {nav
-            .filter((item) => item.label !== "Settings")
-            .map((item) => {
-              const href = item.label === "Business" ? setupHref : item.href;
-              const active = isActive(pathname, item.href, item.match);
-              const Icon = item.icon;
-              return (
-                <li key={item.label}>
-                  <Link
-                    href={href}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "flex min-h-14 flex-col items-center justify-center gap-1 text-xs",
-                      active ? "font-semibold text-brand" : "text-muted-foreground",
-                    )}
-                  >
-                    <Icon className="size-4" aria-hidden="true" />
-                    {item.label === "QR codes" ? "QR" : item.label}
-                  </Link>
-                </li>
-              );
-            })}
-        </ul>
-      </nav>
+      {menuOpen ? (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <button
+            type="button"
+            aria-label="Close menu"
+            tabIndex={-1}
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setMenuOpen(false)}
+          />
+          <nav
+            aria-label="Owner"
+            role="dialog"
+            aria-modal="true"
+            className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col border-r border-border bg-card pb-[env(safe-area-inset-bottom)] shadow-pop"
+          >
+            <div className="flex h-16 items-center justify-between px-4">
+              <Logo href="/dashboard" />
+              <button
+                type="button"
+                className={buttonVariants({ variant: "ghost", size: "icon" })}
+                aria-label="Close menu"
+                onClick={() => setMenuOpen(false)}
+              >
+                <X className="size-5" aria-hidden="true" />
+              </button>
+            </div>
+            <ul className="flex flex-1 flex-col gap-1 px-2">
+              {nav.map((item) => {
+                const href = item.label === "Business" ? setupHref : item.href;
+                const active = isActive(pathname, item.href, item.match);
+                const Icon = item.icon;
+                return (
+                  <li key={item.label}>
+                    <Link
+                      href={href}
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => setMenuOpen(false)}
+                      className={cn(
+                        "flex min-h-12 items-center gap-3 rounded-xl px-3 text-base",
+                        active
+                          ? "bg-brand-50 font-semibold text-brand-800 dark:bg-brand-950 dark:text-brand-100"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      )}
+                    >
+                      <Icon className="size-5 shrink-0" aria-hidden="true" />
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </div>
+      ) : null}
     </div>
   );
 }

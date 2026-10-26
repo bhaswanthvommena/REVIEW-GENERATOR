@@ -20,6 +20,7 @@ import {
 export type GenerateDraftInput = {
   businessName: string;
   businessCategory?: string | null;
+  businessLocation?: string | null;
   ratings: Array<{ label: string; rating: number }>;
   /** Answers to the owner's custom fields. */
   fields?: DraftDetail[];
@@ -77,7 +78,8 @@ function defaultGeminiGenerate(client: GoogleGenAI): GeminiGenerateFn {
           thinkingLevel: ThinkingLevel.MINIMAL,
           includeThoughts: false,
         },
-        maxOutputTokens: 1024,
+        // Drafts are under ~220 words, so a lower ceiling keeps replies fast.
+        maxOutputTokens: 600,
       },
     });
 
@@ -140,6 +142,7 @@ export async function generateReviewDraft(
     const user = buildUserPayload({
       businessName: input.businessName,
       businessCategory: input.businessCategory,
+      businessLocation: input.businessLocation,
       ratings: input.ratings,
       details: input.fields,
       comment: input.comment,

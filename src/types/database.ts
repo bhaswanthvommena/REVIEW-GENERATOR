@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Hand-maintained row shapes mirroring supabase/migrations/20261025120000_init.sql.
  * Replace with generated types (`supabase gen types`) when the project is linked.
  */
@@ -24,6 +24,7 @@ export type BusinessRow = {
   name: string;
   slug: string | null;
   category: string | null;
+  location: string | null;
   description: string | null;
   google_review_url: string;
   plan: string;

@@ -13,10 +13,7 @@ export type ReviewDraftRow = {
   created_at: string;
 };
 
-export async function loadSessionContextForDraft(
-  service: SupabaseClient,
-  sessionId: string,
-): Promise<{
+type SessionContext = {
   session: {
     id: string;
     business_id: string;
@@ -26,9 +23,18 @@ export async function loadSessionContextForDraft(
   };
   businessName: string;
   businessCategory: string | null;
+  businessLocation: string | null;
   ratings: Array<{ label: string; rating: number }>;
   fields: Array<{ label: string; value: string }>;
-}> {
+  /** Latest earlier draft, only loaded when regenerating. */
+  previousDraft: string | null;
+};
+
+export async function loadSessionContextForDraft(
+  service: SupabaseClient,
+  sessionId: string,
+  options?: { withPreviousDraft?: boolean },
+): Promise<SessionContext> {
   const { data: session, error: sessionError } = await service
     .from("feedback_sessions")
     .select("id, business_id, qr_code_id, status, comment")
@@ -45,66 +51,70 @@ export async function loadSessionContextForDraft(
     throw new Error("SESSION_NOT_READY");
   }
 
-  const { data: business, error: businessError } = await service
-    .from("businesses")
-    .select("name, category")
-    .eq("id", session.business_id)
-    .single();
+  // Everything else only needs the session, so fetch it in parallel.
+  const [business, ratingRows, answerRows, previous] = await Promise.all([
+    service
+      .from("businesses")
+      .select("name, category, location")
+      .eq("id", session.business_id)
+      .single(),
+    service
+      .from("feedback_ratings")
+      .select("rating, attribute_id, rating_attributes(label)")
+      .eq("session_id", sessionId),
+    service
+      .from("feedback_field_answers")
+      .select("label, value")
+      .eq("session_id", sessionId),
+    options?.withPreviousDraft
+      ? service
+          .from("review_drafts")
+          .select("draft_text")
+          .eq("feedback_session_id", sessionId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
 
-  if (businessError || !business) {
+  if (business.error || !business.data) {
     throw new Error("BUSINESS_NOT_FOUND");
   }
-
-  const { data: ratingRows, error: ratingsError } = await service
-    .from("feedback_ratings")
-    .select("rating, attribute_id, rating_attributes(label)")
-    .eq("session_id", sessionId);
-
-  if (ratingsError) {
-    throw new Error(ratingsError.message);
+  if (ratingRows.error) {
+    throw new Error(ratingRows.error.message);
+  }
+  if (answerRows.error) {
+    throw new Error(answerRows.error.message);
   }
 
-  const ratings = (ratingRows ?? []).map((row) => {
+  const ratings = (ratingRows.data ?? []).map((row) => {
     const attr = row.rating_attributes as
       | { label: string }
       | { label: string }[]
       | null;
-    const label = Array.isArray(attr)
-      ? attr[0]?.label
-      : attr?.label;
+    const label = Array.isArray(attr) ? attr[0]?.label : attr?.label;
     return {
       label: label ?? "Attribute",
       rating: row.rating as number,
     };
   });
 
-  const { data: answerRows, error: answersError } = await service
-    .from("feedback_field_answers")
-    .select("label, value")
-    .eq("session_id", sessionId);
-
-  if (answersError) {
-    throw new Error(answersError.message);
-  }
-
   return {
-    session: session as {
-      id: string;
-      business_id: string;
-      qr_code_id: string;
-      status: string;
-      comment: string | null;
-    },
-    businessName: business.name as string,
-    businessCategory: (business.category as string | null) ?? null,
+    session: session as SessionContext["session"],
+    businessName: business.data.name as string,
+    businessCategory: (business.data.category as string | null) ?? null,
+    businessLocation: (business.data.location as string | null) ?? null,
     ratings,
-    fields: (answerRows ?? []).map((row) => ({
+    fields: (answerRows.data ?? []).map((row) => ({
       label: row.label as string,
       value: row.value as string,
     })),
+    previousDraft:
+      (previous.data as { draft_text?: string } | null)?.draft_text ?? null,
   };
 }
 
+/** Insert the draft row. The session status is updated separately. */
 export async function persistReviewDraft(
   service: SupabaseClient,
   input: {
@@ -130,49 +140,79 @@ export async function persistReviewDraft(
   if (error) {
     throw new Error(error.message);
   }
+  return data as ReviewDraftRow;
+}
 
+export async function markSessionDrafted(
+  service: SupabaseClient,
+  sessionId: string,
+): Promise<void> {
   await service
     .from("feedback_sessions")
     .update({ status: "drafted" })
-    .eq("id", input.feedbackSessionId)
+    .eq("id", sessionId)
     .in("status", ["completed", "drafted"]);
-
-  return data as ReviewDraftRow;
 }
+
+export type DraftTimings = {
+  contextMs: number;
+  generateMs: number;
+  insertMs: number;
+};
 
 export async function createDraftForSession(
   service: SupabaseClient,
   sessionId: string,
-  options?: { regenerate?: boolean },
-): Promise<{ draft: ReviewDraftRow; generated: GenerateDraftResult }> {
-  const ctx = await loadSessionContextForDraft(service, sessionId);
-  let previousDraft: string | null = null;
-  if (options?.regenerate) {
-    const { data: latest } = await service
-      .from("review_drafts")
-      .select("draft_text")
-      .eq("feedback_session_id", sessionId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    previousDraft = (latest?.draft_text as string | undefined) ?? null;
+  options?: {
+    regenerate?: boolean;
+    /** The session must belong to this QR and business. */
+    expect?: { businessId: string; qrCodeId: string };
+  },
+): Promise<{
+  draft: ReviewDraftRow;
+  generated: GenerateDraftResult;
+  sessionId: string;
+  timings: DraftTimings;
+}> {
+  const t0 = performance.now();
+  const ctx = await loadSessionContextForDraft(service, sessionId, {
+    withPreviousDraft: options?.regenerate,
+  });
+  if (
+    options?.expect &&
+    (ctx.session.business_id !== options.expect.businessId ||
+      ctx.session.qr_code_id !== options.expect.qrCodeId)
+  ) {
+    throw new Error("SESSION_MISMATCH");
   }
+  const t1 = performance.now();
 
   const generated = await generateReviewDraft({
     businessName: ctx.businessName,
     businessCategory: ctx.businessCategory,
+    businessLocation: ctx.businessLocation,
     ratings: ctx.ratings,
     fields: ctx.fields,
     comment: ctx.session.comment,
-    previousDraft,
+    previousDraft: ctx.previousDraft,
   });
+  const t2 = performance.now();
 
   const draft = await persistReviewDraft(service, {
     feedbackSessionId: ctx.session.id,
     businessId: ctx.session.business_id,
     result: generated,
   });
+  const t3 = performance.now();
 
-  return { draft, generated };
+  return {
+    draft,
+    generated,
+    sessionId: ctx.session.id,
+    timings: {
+      contextMs: Math.round(t1 - t0),
+      generateMs: Math.round(t2 - t1),
+      insertMs: Math.round(t3 - t2),
+    },
+  };
 }
-

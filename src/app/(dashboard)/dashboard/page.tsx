@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -96,7 +96,7 @@ export default async function DashboardPage() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">Last 30 days</h2>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="QR scans" value={String(scans)} />
           <StatCard label="Drafts" value={String(drafts)} />
           <StatCard label="Continue clicks" value={String(clicks)} hint="Not published reviews" />

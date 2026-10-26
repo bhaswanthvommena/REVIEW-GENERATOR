@@ -8,6 +8,7 @@ export type DraftDetail = { label: string; value: string };
 export type DraftPromptInput = {
   businessName: string;
   businessCategory?: string | null;
+  businessLocation?: string | null;
   ratings: Array<{ label: string; rating: number }>;
   /** Answers to the owner's custom fields. */
   details?: DraftDetail[];
@@ -71,6 +72,10 @@ export function buildUserPayload(input: DraftPromptInput): string {
   const lines = [`Business name: ${sanitizeForPrompt(input.businessName)}`];
   if (input.businessCategory?.trim()) {
     lines.push(`Business type: ${sanitizeForPrompt(input.businessCategory)}`);
+  }
+
+  if (input.businessLocation?.trim()) {
+    lines.push(`Location: ${sanitizeForPrompt(input.businessLocation)}`);
   }
 
   lines.push(

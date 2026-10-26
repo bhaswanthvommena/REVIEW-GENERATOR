@@ -1,8 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/cn";
@@ -497,42 +496,22 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
                           {field.isRequired ? "(required)" : "(optional)"}
                         </span>
                       </label>
-                      {field.inputType === "long" ? (
-                        <Textarea
-                          id={inputId}
-                          value={value}
-                          rows={4}
-                          maxLength={field.maxLength}
-                          required={field.isRequired}
-                          aria-required={field.isRequired}
-                          aria-describedby={hintId}
-                          onChange={(event) =>
-                            setAnswers((prev) => ({ ...prev, [field.id]: event.target.value }))
-                          }
-                        />
-                      ) : (
-                        <Input
-                          id={inputId}
-                          value={value}
-                          maxLength={field.maxLength}
-                          required={field.isRequired}
-                          aria-required={field.isRequired}
-                          aria-describedby={hintId}
-                          autoComplete="off"
-                          onChange={(event) =>
-                            setAnswers((prev) => ({ ...prev, [field.id]: event.target.value }))
-                          }
-                        />
-                      )}
-                      {field.inputType === "long" ? (
-                        <p id={hintId} className="text-xs text-muted-foreground tabular-nums">
-                          {value.length} / {field.maxLength}
-                        </p>
-                      ) : (
-                        <span id={hintId} className="sr-only">
-                          Up to {field.maxLength} characters
-                        </span>
-                      )}
+                      <Textarea
+                        id={inputId}
+                        value={value}
+                        rows={2}
+                        maxLength={field.maxLength}
+                        required={field.isRequired}
+                        aria-required={field.isRequired}
+                        aria-describedby={hintId}
+                        className="field-sizing-content max-h-64 min-h-14"
+                        onChange={(event) =>
+                          setAnswers((prev) => ({ ...prev, [field.id]: event.target.value }))
+                        }
+                      />
+                      <p id={hintId} className="text-xs text-muted-foreground tabular-nums">
+                        {value.length} / {field.maxLength}
+                      </p>
                     </div>
                   );
                 })}
@@ -566,7 +545,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md">
-        <div className="mx-auto flex max-w-lg flex-col gap-2">
+        <div className="mx-auto flex max-w-lg md:max-w-xl flex-col gap-2">
           <p ref={draftStatusRef} tabIndex={-1} className="text-sm text-muted-foreground outline-none" aria-live="polite">
             {statusMessage ?? readyHint}
           </p>

@@ -166,7 +166,8 @@ export async function resolveActiveQrByToken(
       displayOrder: row.display_order as number,
     })),
     fields: (fieldRows ?? []).map((row) => {
-      const inputType = row.input_type === "long" ? "long" : "short";
+      // One kind of text box for every field; owners no longer pick a size.
+      const inputType = "long" as const;
       return {
         id: row.id as string,
         label: row.label as string,

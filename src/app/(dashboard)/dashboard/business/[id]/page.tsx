@@ -8,9 +8,7 @@ import { requireUser } from "@/modules/auth";
 import { getBusinessForOwner } from "@/modules/businesses";
 import { listFieldsForBusiness } from "@/modules/fields";
 import { listQrCodesForBusiness } from "@/modules/qr";
-import { BusinessForm } from "../business-form";
-import { AttributesManager } from "./attributes-manager";
-import { FieldsManager } from "./fields-manager";
+import { BusinessSetup, type SetupInitial } from "./business-setup";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -29,14 +27,35 @@ export default async function BusinessDetailPage({ params }: PageProps) {
   ]);
   const hasQr = qrCodes.some((qr) => qr.is_active);
 
+  const initial: SetupInitial = {
+    profile: {
+      name: business.name,
+      category: business.category ?? "",
+      location: business.location ?? "",
+      description: business.description ?? "",
+      googleReviewUrl: business.google_review_url,
+    },
+    fields: fields.map((field) => ({
+      id: field.id,
+      label: field.label,
+      isRequired: field.is_required,
+      isActive: field.is_active,
+    })),
+    attributes: attributes.map((attribute) => ({
+      id: attribute.id,
+      label: attribute.label,
+      isActive: attribute.is_active,
+    })),
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         title={business.name}
         description={
           hasQr
-            ? "Your profile is saved. Share the QR so customers can write a review."
-            : "Profile saved. Create a QR so customers can rate the visit and copy a draft."
+            ? "Your setup is saved. Share the QR so customers can write a review."
+            : "Set up your business, then create a QR so customers can rate the visit and copy a draft."
         }
         actions={
           <Link href="/dashboard/qr" className={buttonVariants({ size: "lg", className: "sm:w-auto" })}>
@@ -44,18 +63,8 @@ export default async function BusinessDetailPage({ params }: PageProps) {
           </Link>
         }
       />
-      <BusinessForm
-        businessId={business.id}
-        initial={{
-          name: business.name,
-          slug: business.slug,
-          category: business.category,
-          description: business.description,
-          googleReviewUrl: business.google_review_url,
-        }}
-      />
-      <FieldsManager businessId={business.id} initial={fields} />
-      <AttributesManager businessId={business.id} initial={attributes} />
+      {/* Remount with fresh drafts whenever the saved data changes. */}
+      <BusinessSetup key={JSON.stringify(initial)} businessId={business.id} initial={initial} />
     </div>
   );
 }

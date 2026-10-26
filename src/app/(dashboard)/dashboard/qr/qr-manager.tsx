@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Copy, Download, ExternalLink } from "lucide-react";
 import Image from "next/image";
@@ -125,12 +125,12 @@ export function QrManager({
           description="Create one to print or share. Customers open it on their phone."
         />
       ) : (
-        <ul className="grid gap-4 lg:grid-cols-2">
+        <ul className="grid gap-4 xl:grid-cols-2">
           {qrCodes.map((qr) => (
             <li key={qr.id}>
               <Card>
-                <CardContent className="space-y-4">
-                  <div className="flex items-start justify-between gap-3">
+                <CardContent className="grid gap-4 md:grid-cols-[14rem_minmax(0,1fr)] md:items-start">
+                  <div className="flex items-start justify-between gap-3 md:col-span-2">
                     <div className="min-w-0">
                       <p className="font-medium">{qr.label ?? "Untitled QR"}</p>
                       <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
