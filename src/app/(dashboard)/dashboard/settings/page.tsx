@@ -4,10 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
+import { AccountForm } from "./account-form";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
   const user = await requireUser(supabase);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, phone, date_of_birth")
+    .eq("id", user.id)
+    .maybeSingle();
 
   return (
     <div className="space-y-6">
@@ -18,9 +24,18 @@ export default async function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Account</CardTitle>
-          <CardDescription>Signed in as {user.email ?? user.id}</CardDescription>
+          <CardDescription>Your name, phone number, and date of birth.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          <AccountForm
+            userId={user.id}
+            email={user.email ?? ""}
+            initialName={(profile?.full_name as string | undefined) ?? ""}
+            initialPhone={(profile?.phone as string | undefined) ?? ""}
+            initialDateOfBirth={
+              profile?.date_of_birth ? String(profile.date_of_birth).slice(0, 10) : ""
+            }
+          />
           <form action="/auth/signout" method="post">
             <Button type="submit" variant="outline">
               Sign out
