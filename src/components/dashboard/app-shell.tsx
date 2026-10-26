@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { ProfileAvatar } from "@/components/dashboard/profile-avatar";
 import { buttonVariants } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -62,11 +63,13 @@ export function AppShell({
   setupHref,
   email,
   businessName,
+  avatarUrl,
 }: {
   children: React.ReactNode;
   setupHref: string;
   email: string;
   businessName: string | null;
+  avatarUrl: string | null;
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -171,12 +174,13 @@ export function AppShell({
             <div className="relative" ref={accountRef}>
               <button
                 type="button"
-                className={buttonVariants({ variant: "outline", size: "sm" })}
+                className="rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                aria-label="Account"
                 aria-expanded={accountOpen}
                 aria-haspopup="menu"
                 onClick={() => setAccountOpen((current) => !current)}
               >
-                Account
+                <ProfileAvatar src={avatarUrl} />
               </button>
               {accountOpen ? (
                 <div

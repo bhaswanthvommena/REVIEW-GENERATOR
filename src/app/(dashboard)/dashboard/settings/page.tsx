@@ -5,6 +5,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
 import { AccountForm } from "./account-form";
+import { AvatarForm } from "./avatar-form";
 import { PasswordForm } from "./password-form";
 
 export default async function SettingsPage() {
@@ -12,7 +13,7 @@ export default async function SettingsPage() {
   const user = await requireUser(supabase);
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, phone, date_of_birth")
+    .select("full_name, phone, date_of_birth, avatar_path")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -28,6 +29,10 @@ export default async function SettingsPage() {
           <CardDescription>Your name, phone number, and date of birth.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <AvatarForm
+            userId={user.id}
+            initialPath={(profile?.avatar_path as string | null | undefined) ?? null}
+          />
           <AccountForm
             userId={user.id}
             email={user.email ?? ""}

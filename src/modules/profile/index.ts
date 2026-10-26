@@ -1,3 +1,4 @@
+export { publicAvatarUrl } from "./avatar";
 export {
   dateOfBirthSchema,
   fullNameSchema,

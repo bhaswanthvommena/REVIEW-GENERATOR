@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/modules/auth";
 import { listBusinessesForOwner } from "@/modules/businesses";
+import { publicAvatarUrl } from "@/modules/profile";
 
 /** Owner session via cookies — allowed to block instant navigation. */
 export const instant = false;
@@ -55,6 +56,11 @@ async function DashboardSession({
   const businesses = await listBusinessesForOwner(supabase, user.id);
   const business = businesses[0] ?? null;
   const setupHref = business ? `/dashboard/business/${business.id}` : "/dashboard/business";
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("avatar_path")
+    .eq("id", user.id)
+    .maybeSingle();
 
   return (
     <UnsavedChangesProvider>
@@ -62,6 +68,7 @@ async function DashboardSession({
         setupHref={setupHref}
         email={user.email ?? user.id}
         businessName={business?.name ?? null}
+        avatarUrl={publicAvatarUrl((profile?.avatar_path as string | null | undefined) ?? null)}
       >
         {children}
       </AppShell>
