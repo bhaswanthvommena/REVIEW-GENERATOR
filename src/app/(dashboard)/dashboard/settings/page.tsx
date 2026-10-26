@@ -5,6 +5,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
 import { AccountForm } from "./account-form";
+import { PasswordForm } from "./password-form";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -36,6 +37,7 @@ export default async function SettingsPage() {
               profile?.date_of_birth ? String(profile.date_of_birth).slice(0, 10) : ""
             }
           />
+          {user.email ? <PasswordForm email={user.email} /> : null}
           <form action="/auth/signout" method="post">
             <Button type="submit" variant="outline">
               Sign out
