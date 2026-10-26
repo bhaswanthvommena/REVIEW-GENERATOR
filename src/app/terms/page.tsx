@@ -1,45 +1,60 @@
-import Link from "next/link";
+import type { Metadata } from "next";
+import { LegalLayout } from "@/components/marketing/legal-layout";
 
-export const metadata = {
-  title: "Terms — Review Generator",
+export const metadata: Metadata = {
+  title: "Terms",
   description: "Terms of use stub for the Review Generator MVP.",
 };
 
+const sections = [
+  { id: "service", label: "The service" },
+  { id: "google", label: "Google" },
+  { id: "use", label: "Acceptable use" },
+  { id: "gating", label: "No gating" },
+  { id: "abuse", label: "Abuse" },
+];
+
 export default function TermsPage() {
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <p className="text-sm text-zinc-500">
-        <Link href="/" className="underline">
-          Review Generator
-        </Link>
-      </p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight">Terms of use</h1>
-      <p className="mt-4 text-zinc-600 dark:text-zinc-400">
-        This is an MVP stub, not a binding contract. Replace before production
-        launch.
-      </p>
-      <ul className="mt-6 list-disc space-y-2 pl-5 text-sm text-zinc-700 dark:text-zinc-300">
-        <li>
-          The service helps customers draft reviews from their own ratings and
-          comments. Customers must review drafts for accuracy before posting.
-        </li>
-        <li>
-          We do not post reviews to Google on anyone’s behalf and do not store
-          Google Business Profile OAuth credentials in this MVP.
-        </li>
-        <li>
-          Do not use the product to solicit only positive reviews, offer
-          incentives for reviews, or fabricate experiences.
-        </li>
-        <li>
-          “Continue to Google” is always available and is never gated by star
-          ratings.
-        </li>
-        <li>
-          Abuse, automated scraping of tokens, or attempts to bypass rate limits
-          may result in access being revoked.
-        </li>
-      </ul>
-    </main>
+    <LegalLayout
+      title="Terms of use"
+      lede="This is an MVP stub, not a binding contract. Replace it before a production launch."
+      sections={sections}
+    >
+      <section id="service" className="scroll-mt-24">
+        <h2 className="text-xl font-semibold tracking-tight">The service</h2>
+        <p className="mt-2">
+          Review Generator helps a customer draft a review from their own ratings and comment. They
+          must read the draft and correct anything that is not true before posting it.
+        </p>
+      </section>
+      <section id="google" className="scroll-mt-24">
+        <h2 className="text-xl font-semibold tracking-tight">Google</h2>
+        <p className="mt-2">
+          We do not post reviews to Google for anyone. This MVP does not store Google Business
+          Profile credentials. The owner pastes an official review link.
+        </p>
+      </section>
+      <section id="use" className="scroll-mt-24">
+        <h2 className="text-xl font-semibold tracking-tight">Acceptable use</h2>
+        <p className="mt-2">
+          Do not use the product to ask only for positive reviews, to offer incentives, or to invent
+          experiences the customer did not have.
+        </p>
+      </section>
+      <section id="gating" className="scroll-mt-24">
+        <h2 className="text-xl font-semibold tracking-tight">No gating</h2>
+        <p className="mt-2">
+          Continue to Google is always available. It is never hidden or disabled because of a star
+          rating or the wording of a draft.
+        </p>
+      </section>
+      <section id="abuse" className="scroll-mt-24">
+        <h2 className="text-xl font-semibold tracking-tight">Abuse</h2>
+        <p className="mt-2">
+          Scraping tokens or trying to bypass rate limits can result in access being revoked.
+        </p>
+      </section>
+    </LegalLayout>
   );
 }

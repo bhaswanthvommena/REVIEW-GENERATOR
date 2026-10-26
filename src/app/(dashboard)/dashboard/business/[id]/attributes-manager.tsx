@@ -1,6 +1,15 @@
 "use client";
 
+import { GripVertical } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/components/ui/toast";
 import type { RatingAttribute } from "@/modules/attributes";
 
 type Props = {
@@ -9,10 +18,13 @@ type Props = {
 };
 
 export function AttributesManager({ businessId, initial }: Props) {
+  const { push } = useToast();
   const [attributes, setAttributes] = useState(initial);
   const [label, setLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<RatingAttribute | null>(null);
 
   async function refresh() {
     const response = await fetch(`/api/v1/businesses/${businessId}/attributes`);
@@ -22,28 +34,79 @@ export function AttributesManager({ businessId, initial }: Props) {
     }
   }
 
+  async function persistOrder(list: RatingAttribute[]) {
+    const results = await Promise.all(
+      list.map((attribute, index) =>
+        fetch(`/api/v1/attributes/${attribute.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            businessId,
+            displayOrder: index + 1,
+          }),
+        }),
+      ),
+    );
+    if (results.some((response) => !response.ok)) {
+      throw new Error("Could not save the new order");
+    }
+  }
+
+  async function reorder(next: RatingAttribute[]) {
+    const previous = attributes;
+    setAttributes(next.map((attribute, index) => ({ ...attribute, display_order: index + 1 })));
+    try {
+      await persistOrder(next);
+    } catch (err) {
+      setAttributes(previous);
+      setError(err instanceof Error ? err.message : "Could not save the new order");
+    }
+  }
+
+  function move(attributeId: string, direction: -1 | 1) {
+    const index = attributes.findIndex((attribute) => attribute.id === attributeId);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= attributes.length) return;
+    const next = [...attributes];
+    const [item] = next.splice(index, 1);
+    if (!item) return;
+    next.splice(target, 0, item);
+    void reorder(next);
+  }
+
+  function onDrop(targetId: string) {
+    if (!dragId || dragId === targetId) return;
+    const next = [...attributes];
+    const from = next.findIndex((attribute) => attribute.id === dragId);
+    const to = next.findIndex((attribute) => attribute.id === targetId);
+    if (from < 0 || to < 0) return;
+    const [item] = next.splice(from, 1);
+    if (!item) return;
+    next.splice(to, 0, item);
+    setDragId(null);
+    void reorder(next);
+  }
+
   async function onCreate(event: FormEvent) {
     event.preventDefault();
     setPending(true);
     setError(null);
     try {
-      const response = await fetch(
-        `/api/v1/businesses/${businessId}/attributes`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            label,
-            displayOrder: attributes.length + 1,
-          }),
-        },
-      );
+      const response = await fetch(`/api/v1/businesses/${businessId}/attributes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label,
+          displayOrder: attributes.length + 1,
+        }),
+      });
       const body = (await response.json()) as { error?: { message: string } };
       if (!response.ok) {
         throw new Error(body.error?.message ?? "Create failed");
       }
       setLabel("");
       await refresh();
+      push("Question added");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
     } finally {
@@ -51,15 +114,12 @@ export function AttributesManager({ businessId, initial }: Props) {
     }
   }
 
-  async function toggleActive(attribute: RatingAttribute) {
+  async function toggleActive(attribute: RatingAttribute, isActive: boolean) {
     setError(null);
     const response = await fetch(`/api/v1/attributes/${attribute.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        businessId,
-        isActive: !attribute.is_active,
-      }),
+      body: JSON.stringify({ businessId, isActive }),
     });
     if (!response.ok) {
       const body = (await response.json()) as { error?: { message: string } };
@@ -78,74 +138,115 @@ export function AttributesManager({ businessId, initial }: Props) {
     });
     if (!response.ok) {
       const body = (await response.json()) as { error?: { message: string } };
-      setError(body.error?.message ?? "Delete failed");
-      return;
+      throw new Error(body.error?.message ?? "Delete failed");
     }
     await refresh();
+    push("Question deleted");
   }
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Rating attributes</h3>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        Defaults are seeded on business create (Overall experience, Quality,
-        Service, Value, Atmosphere). Customers rate each active attribute 1–5.
-      </p>
-
-      <ul className="space-y-2">
-        {attributes.map((attribute) => (
-          <li
-            key={attribute.id}
-            className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 py-2 text-sm dark:border-zinc-800"
-          >
-            <span>
-              <span className="font-medium">{attribute.label}</span>
-              <span className="ml-2 text-zinc-500">
-                order {attribute.display_order}
-                {!attribute.is_active ? " · inactive" : ""}
+    <Card>
+      <CardHeader>
+        <CardTitle>Rating questions</CardTitle>
+        <CardDescription>
+          Customers rate each active question from 1 to 5. Nothing is selected for them.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <ul className="space-y-2">
+          {attributes.map((attribute, index) => (
+            <li
+              key={attribute.id}
+              draggable
+              onDragStart={() => setDragId(attribute.id)}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => onDrop(attribute.id)}
+              className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-background px-3 py-2"
+            >
+              <span className="text-muted-foreground" aria-hidden="true">
+                <GripVertical className="size-4" />
               </span>
-            </span>
-            <span className="flex gap-3">
-              <button
+              <span className="min-w-0 flex-1">
+                <span className="font-medium">{attribute.label}</span>
+                {!attribute.is_active ? (
+                  <span className="ml-2 text-sm text-muted-foreground">Inactive</span>
+                ) : null}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Move ${attribute.label} up`}
+                  disabled={index === 0}
+                  onClick={() => move(attribute.id, -1)}
+                >
+                  Up
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Move ${attribute.label} down`}
+                  disabled={index === attributes.length - 1}
+                  onClick={() => move(attribute.id, 1)}
+                >
+                  Down
+                </Button>
+              </div>
+              <Switch
+                checked={attribute.is_active}
+                label={`${attribute.is_active ? "Deactivate" : "Activate"} ${attribute.label}`}
+                onCheckedChange={(next) => void toggleActive(attribute, next)}
+              />
+              <Button
                 type="button"
-                className="underline"
-                onClick={() => toggleActive(attribute)}
-              >
-                {attribute.is_active ? "Deactivate" : "Activate"}
-              </button>
-              <button
-                type="button"
-                className="underline text-red-700 dark:text-red-400"
-                onClick={() => onDelete(attribute)}
+                variant="ghost"
+                size="sm"
+                className="text-danger"
+                onClick={() => setPendingDelete(attribute)}
               >
                 Delete
-              </button>
-            </span>
-          </li>
-        ))}
-      </ul>
+              </Button>
+            </li>
+          ))}
+        </ul>
 
-      <form onSubmit={onCreate} className="flex flex-wrap items-end gap-3">
-        <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-sm">
-          New attribute label
-          <input
-            required
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            className="rounded border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
-        >
-          Add
-        </button>
-      </form>
-      {error ? (
-        <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
-      ) : null}
-    </div>
+        <form onSubmit={onCreate} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <Field label="New question" htmlFor="attribute-label" className="flex-1">
+            <Input
+              id="attribute-label"
+              required
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+            />
+          </Field>
+          <Button type="submit" loading={pending} className="sm:w-auto">
+            Add
+          </Button>
+        </form>
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+      </CardContent>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete this question?"
+        description={
+          pendingDelete
+            ? `“${pendingDelete.label}” will disappear from new feedback. Past ratings stay in your records.`
+            : ""
+        }
+        confirmLabel="Delete"
+        onClose={() => setPendingDelete(null)}
+        onConfirm={async () => {
+          if (!pendingDelete) return;
+          try {
+            await onDelete(pendingDelete);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Delete failed");
+          }
+        }}
+      />
+    </Card>
   );
 }

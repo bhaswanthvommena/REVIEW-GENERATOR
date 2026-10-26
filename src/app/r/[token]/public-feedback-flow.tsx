@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/cn";
 
 type Attribute = { id: string; label: string; displayOrder: number };
 
@@ -12,8 +16,77 @@ type ResolvePayload = {
 
 type Step = "loading" | "rate" | "draft" | "error";
 
-const focusRing =
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:focus-visible:outline-zinc-100";
+const STAR_WORDS = ["Poor", "Fair", "Okay", "Good", "Great"] as const;
+
+const FLOW_STEPS = [
+  { id: "rate", label: "Rate" },
+  { id: "draft", label: "Draft" },
+  { id: "google", label: "Google" },
+] as const;
+
+function wordCount(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) return 0;
+  return trimmed.split(/\s+/).length;
+}
+
+function StarRow({
+  name,
+  label,
+  value,
+  onChange,
+}: {
+  name: string;
+  label: string;
+  value: number | undefined;
+  onChange: (value: number) => void;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const shown = hover ?? value ?? 0;
+
+  return (
+    <fieldset
+      className="rounded-2xl border border-border bg-card p-4 shadow-card"
+      onMouseLeave={() => setHover(null)}
+    >
+      <legend className="px-1 text-base font-medium">{label}</legend>
+      <div className="mt-3 flex gap-1" role="presentation">
+        {[1, 2, 3, 4, 5].map((star) => {
+          const word = STAR_WORDS[star - 1];
+          return (
+            <label
+              key={star}
+              className="rounded-full focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring"
+              onMouseEnter={() => setHover(star)}
+            >
+              <input
+                type="radio"
+                name={name}
+                value={star}
+                checked={value === star}
+                onChange={() => onChange(star)}
+                className="sr-only"
+                aria-label={`${label}: ${star} out of 5, ${word}`}
+              />
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "flex size-11 items-center justify-center text-2xl transition-transform duration-150 active:scale-95 motion-reduce:transition-none",
+                  shown >= star ? "text-brand" : "text-muted-foreground/35",
+                )}
+              >
+                ★
+              </span>
+            </label>
+          );
+        })}
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {value ? STAR_WORDS[value - 1] : "Nothing selected"}
+      </p>
+    </fieldset>
+  );
+}
 
 export function PublicFeedbackFlow({ token }: { token: string }) {
   const [step, setStep] = useState<Step>("loading");
@@ -26,9 +99,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
   const [comment, setComment] = useState("");
   const [draftText, setDraftText] = useState("");
   const [draftWarnings, setDraftWarnings] = useState<string[]>([]);
-  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
-    "idle",
-  );
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const [pending, startTransition] = useTransition();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const draftStatusRef = useRef<HTMLParagraphElement>(null);
@@ -59,29 +130,22 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         setGoogleReviewUrl(resolveBody.googleReviewUrl);
         setAttributes(resolveBody.attributes);
         setRatings(
-          Object.fromEntries(
-            resolveBody.attributes.map((attr) => [attr.id, undefined]),
-          ),
+          Object.fromEntries(resolveBody.attributes.map((attr) => [attr.id, undefined])),
         );
 
-        const sessionRes = await fetch(
-          `/api/v1/r/${encodeURIComponent(token)}/sessions`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              clientMeta: { locale: navigator.language },
-            }),
-          },
-        );
+        const sessionRes = await fetch(`/api/v1/r/${encodeURIComponent(token)}/sessions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientMeta: { locale: navigator.language },
+          }),
+        });
         const sessionBody = (await sessionRes.json()) as {
           sessionId?: string;
           error?: { message: string };
         };
         if (!sessionRes.ok || !sessionBody.sessionId) {
-          throw new Error(
-            sessionBody.error?.message ?? "Could not start a feedback session.",
-          );
+          throw new Error(sessionBody.error?.message ?? "Could not start a feedback session.");
         }
 
         if (cancelled) return;
@@ -89,9 +153,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         setStep("rate");
       } catch (err) {
         if (cancelled) return;
-        setErrorMessage(
-          err instanceof Error ? err.message : "Something went wrong.",
-        );
+        setErrorMessage(err instanceof Error ? err.message : "Something went wrong.");
         setStep("error");
       }
     }
@@ -134,7 +196,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         keepalive: true,
       });
     } catch {
-      // Analytics should not block UX.
+      // Analytics should not block the customer.
     }
   }
 
@@ -144,17 +206,14 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
     setErrorMessage(null);
     setStatusMessage(regenerate ? "Rewriting your review…" : "Writing your review…");
     try {
-      const response = await fetch(
-        `/api/v1/r/${encodeURIComponent(token)}/drafts`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            feedbackSessionId: currentSessionId,
-            regenerate,
-          }),
-        },
-      );
+      const response = await fetch(`/api/v1/r/${encodeURIComponent(token)}/drafts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          feedbackSessionId: currentSessionId,
+          regenerate,
+        }),
+      });
       const body = (await response.json()) as {
         draft?: { text: string; warnings?: string[] };
         googleReviewUrl?: string;
@@ -172,9 +231,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
       draftStatusRef.current?.focus();
     } catch (err) {
       setStatusMessage(null);
-      setErrorMessage(
-        err instanceof Error ? err.message : "Could not generate draft.",
-      );
+      setErrorMessage(err instanceof Error ? err.message : "Could not generate draft.");
     }
   }
 
@@ -185,21 +242,18 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
       setErrorMessage(null);
       setStatusMessage("Saving your ratings…");
       try {
-        const response = await fetch(
-          `/api/v1/r/${encodeURIComponent(token)}/feedback`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              sessionId: currentSessionId,
-              comment: comment.trim() || null,
-              ratings: attributes.map((attr) => ({
-                attributeId: attr.id,
-                rating: ratings[attr.id],
-              })),
-            }),
-          },
-        );
+        const response = await fetch(`/api/v1/r/${encodeURIComponent(token)}/feedback`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: currentSessionId,
+            comment: comment.trim() || null,
+            ratings: attributes.map((attr) => ({
+              attributeId: attr.id,
+              rating: ratings[attr.id],
+            })),
+          }),
+        });
         const body = (await response.json()) as {
           error?: { message: string };
           next?: { googleReviewUrl?: string };
@@ -214,9 +268,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         await requestDraft(false);
       } catch (err) {
         setStatusMessage(null);
-        setErrorMessage(
-          err instanceof Error ? err.message : "Could not submit feedback.",
-        );
+        setErrorMessage(err instanceof Error ? err.message : "Could not submit feedback.");
       }
     });
   }
@@ -241,55 +293,26 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
     }
   }
 
-  function onContinueToGoogle() {
+  function onContinueToGoogle(event: React.MouseEvent<HTMLAnchorElement>) {
+    if (!googleReviewUrl) {
+      event.preventDefault();
+      return;
+    }
     void emitEvent("google_continue_clicked", {
       hadDraft: Boolean(draftText.trim()),
     });
   }
 
-  const googleCta = (
-    <a
-      href={googleReviewUrl || "#"}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={onContinueToGoogle}
-      className={`inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-zinc-300 px-4 text-base font-medium dark:border-zinc-700 ${focusRing}`}
-    >
-      Continue to Google
-    </a>
-  );
-
-  const progress = (
-    <ol className="flex gap-3 text-sm text-zinc-500">
-      {(
-        [
-          ["rate", "Rate"],
-          ["draft", "Draft"],
-          ["google", "Google"],
-        ] as const
-      ).map(([id, label], index) => {
-        const current =
-          id === "google"
-            ? copyState === "copied"
-            : step === id && copyState !== "copied";
-        return (
-          <li
-            key={id}
-            className={current ? "font-semibold text-foreground" : undefined}
-            aria-current={current ? "step" : undefined}
-          >
-            {index + 1} {label}
-          </li>
-        );
-      })}
-    </ol>
-  );
+  const activeIndex = copyState === "copied" ? 2 : step === "draft" ? 1 : 0;
+  const initial = businessName.trim().charAt(0).toUpperCase() || "R";
 
   if (step === "loading") {
     return (
-      <div className="space-y-3" aria-live="polite" aria-busy="true">
-        <p className="text-base text-zinc-500">Opening feedback…</p>
-        <div className="h-2 w-full animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
+      <div className="space-y-4" aria-busy="true" aria-live="polite">
+        <p className="text-sm text-muted-foreground">Opening feedback…</p>
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-28 w-full" />
+        <Skeleton className="h-28 w-full" />
       </div>
     );
   }
@@ -297,14 +320,10 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
   if (step === "error") {
     return (
       <section className="space-y-3">
-        <h1
-          ref={headingRef}
-          tabIndex={-1}
-          className="text-2xl font-semibold tracking-tight outline-none"
-        >
+        <h1 ref={headingRef} tabIndex={-1} className="text-3xl font-semibold tracking-tight outline-none">
           Link unavailable
         </h1>
-        <p className="text-base text-zinc-600 dark:text-zinc-400" role="alert">
+        <p className="text-base text-muted-foreground" role="alert">
           {errorMessage ??
             "This QR code may be expired, revoked, or invalid. Ask the business for a new one."}
         </p>
@@ -323,153 +342,138 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
 
   return (
     <>
-      <div className="space-y-8 pb-40">
-        {progress}
+      <div className="space-y-8 pb-44">
+        <div className="flex items-center gap-3">
+          <span className="flex size-11 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-800 dark:bg-brand-950 dark:text-brand-100">
+            {initial}
+          </span>
+          <div>
+            <p className="text-sm text-muted-foreground">Review for</p>
+            <p className="font-medium">{businessName}</p>
+          </div>
+        </div>
+
+        <ol className="grid grid-cols-3 gap-2" aria-label="Progress">
+          {FLOW_STEPS.map((item, index) => {
+            const current = index === activeIndex;
+            const done = index < activeIndex;
+            return (
+              <li
+                key={item.id}
+                aria-current={current ? "step" : undefined}
+                className="space-y-2"
+              >
+                <span
+                  className={cn(
+                    "block h-1.5 rounded-full",
+                    done || current ? "bg-brand" : "bg-muted",
+                  )}
+                />
+                <span className={cn("text-xs", current ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                  {index + 1}. {item.label}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+
         {step === "draft" ? (
           <section className="space-y-6">
             <div>
-              <p className="text-sm text-zinc-500">{businessName}</p>
-              <h1
-                ref={headingRef}
-                tabIndex={-1}
-                className="text-3xl font-semibold tracking-tight outline-none"
-              >
+              <h1 ref={headingRef} tabIndex={-1} className="text-3xl font-semibold tracking-tight outline-none">
                 Your review
               </h1>
-              <p className="mt-2 text-base text-zinc-600 dark:text-zinc-400">
-                Edit anything that does not sound like you, then copy it onto
-                Google. We never post for you.
+              <p className="mt-2 text-base text-muted-foreground">
+                Edit anything that does not sound like you, then copy it onto Google. We never post
+                for you.
               </p>
             </div>
 
-            <p
-              ref={draftStatusRef}
-              tabIndex={-1}
-              className="sr-only outline-none"
-              aria-live="polite"
-            >
-              {statusMessage}
-            </p>
-            {statusMessage ? (
-              <p className="text-base text-zinc-600 dark:text-zinc-400">
-                {statusMessage}
-              </p>
-            ) : null}
-
             {draftText ? (
-              <div className="space-y-3">
-                <label className="flex flex-col gap-2 text-sm">
+              <div className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-card">
+                <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="draft-text">
                   Draft
-                  <textarea
+                  <Textarea
+                    id="draft-text"
                     value={draftText}
-                    onChange={(e) => setDraftText(e.target.value)}
+                    onChange={(event) => setDraftText(event.target.value)}
                     rows={8}
-                    className={`min-h-40 rounded-xl border border-zinc-300 bg-transparent px-3 py-3 text-base dark:border-zinc-700 ${focusRing}`}
                   />
                 </label>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {wordCount(draftText)} words · {draftText.length} characters
+                </p>
                 {draftWarnings.length > 0 ? (
-                  <ul className="list-disc pl-5 text-sm text-zinc-500">
+                  <ul className="list-disc pl-5 text-sm text-muted-foreground">
                     {draftWarnings.map((warning) => (
                       <li key={warning}>{warning}</li>
                     ))}
                   </ul>
                 ) : null}
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={onRegenerate}
-                  className={`min-h-12 w-full rounded-xl border border-zinc-300 px-4 text-base font-medium dark:border-zinc-700 disabled:opacity-50 ${focusRing}`}
-                >
+                <Button type="button" variant="outline" size="lg" disabled={pending} onClick={onRegenerate}>
                   {pending ? "Rewriting…" : "Regenerate"}
-                </button>
+                </Button>
               </div>
             ) : pending ? (
               <div className="space-y-3" aria-busy="true">
-                <div className="h-3 w-2/3 animate-pulse rounded bg-zinc-200 dark:bg-zinc-800" />
-                <div className="h-28 animate-pulse rounded-xl bg-zinc-200 dark:bg-zinc-800" />
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-32 w-full" />
               </div>
             ) : null}
 
             {errorMessage ? (
               <div className="space-y-3">
-                <p className="text-sm text-red-700 dark:text-red-400" role="alert">
+                <p className="text-sm text-danger" role="alert">
                   {errorMessage}
                 </p>
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={onRegenerate}
-                  className={`min-h-12 w-full rounded-xl border border-zinc-300 px-4 text-base font-medium dark:border-zinc-700 ${focusRing}`}
-                >
+                <Button type="button" variant="outline" size="lg" disabled={pending} onClick={onRegenerate}>
                   Try again
-                </button>
+                </Button>
               </div>
             ) : null}
           </section>
         ) : (
-          <section className="space-y-8">
+          <section className="space-y-6">
             <div>
-              <h1
-                ref={headingRef}
-                tabIndex={-1}
-                className="text-3xl font-semibold tracking-tight outline-none"
-              >
-                {businessName}
+              <h1 ref={headingRef} tabIndex={-1} className="text-3xl font-semibold tracking-tight outline-none">
+                How was your visit?
               </h1>
-              <p className="mt-2 text-base text-zinc-600 dark:text-zinc-400">
-                How was your visit? Tap the stars. Nothing is selected for you.
+              <p className="mt-2 text-base text-muted-foreground">
+                Tap the stars. Nothing is selected for you, and a low rating never hides Google.
               </p>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-3">
               {attributes.map((attr) => (
-                <fieldset key={attr.id} className="space-y-2">
-                  <legend className="text-base font-medium">{attr.label}</legend>
-                  <div
-                    className="flex gap-2"
-                    role="radiogroup"
-                    aria-label={attr.label}
-                  >
-                    {[1, 2, 3, 4, 5].map((value) => {
-                      const selected = (ratings[attr.id] ?? 0) >= value;
-                      return (
-                        <button
-                          key={value}
-                          type="button"
-                          aria-pressed={ratings[attr.id] === value}
-                          aria-label={`${attr.label}: ${value} out of 5`}
-                          onClick={() =>
-                            setRatings((prev) => ({ ...prev, [attr.id]: value }))
-                          }
-                          className={`flex h-11 w-11 items-center justify-center rounded-full text-2xl leading-none ${focusRing} ${
-                            selected
-                              ? "text-zinc-900 dark:text-zinc-100"
-                              : "text-zinc-300 dark:text-zinc-700"
-                          }`}
-                        >
-                          ★
-                        </button>
-                      );
-                    })}
-                  </div>
-                </fieldset>
+                <StarRow
+                  key={attr.id}
+                  name={attr.id}
+                  label={attr.label}
+                  value={ratings[attr.id]}
+                  onChange={(value) =>
+                    setRatings((prev) => ({
+                      ...prev,
+                      [attr.id]: value,
+                    }))
+                  }
+                />
               ))}
             </div>
 
-            <label className="flex flex-col gap-2 text-sm">
+            <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="visit-note">
               Anything else? (optional)
-              <textarea
+              <Textarea
+                id="visit-note"
                 value={comment}
-                onChange={(e) => setComment(e.target.value)}
+                onChange={(event) => setComment(event.target.value)}
                 rows={4}
                 maxLength={2000}
                 placeholder="What stood out?"
-                className={`rounded-xl border border-zinc-300 bg-transparent px-3 py-3 text-base dark:border-zinc-700 ${focusRing}`}
               />
             </label>
 
             {errorMessage ? (
-              <p className="text-sm text-red-700 dark:text-red-400" role="alert">
+              <p className="text-sm text-danger" role="alert">
                 {errorMessage}
               </p>
             ) : null}
@@ -477,31 +481,34 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         )}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-200 bg-background px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-zinc-800">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md">
         <div className="mx-auto flex max-w-lg flex-col gap-2">
-          <p className="sr-only" aria-live="polite">
+          <p ref={draftStatusRef} tabIndex={-1} className="text-sm text-muted-foreground outline-none" aria-live="polite">
             {statusMessage}
           </p>
           {step === "rate" ? (
-            <button
-              type="button"
-              disabled={!allRated || pending}
-              onClick={onSubmitFeedback}
-              className={`min-h-12 w-full rounded-xl bg-zinc-900 px-4 text-base font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 ${focusRing}`}
-            >
+            <Button type="button" size="lg" disabled={!allRated || pending} onClick={onSubmitFeedback}>
               {primaryLabel}
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               type="button"
+              size="lg"
               disabled={pending || !draftText.trim()}
               onClick={() => void onCopyDraft()}
-              className={`min-h-12 w-full rounded-xl bg-zinc-900 px-4 text-base font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 ${focusRing}`}
             >
               {primaryLabel}
-            </button>
+            </Button>
           )}
-          {googleCta}
+          <a
+            href={googleReviewUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={onContinueToGoogle}
+            className={buttonVariants({ variant: "secondary", size: "lg" })}
+          >
+            Continue to Google
+          </a>
         </div>
       </div>
     </>

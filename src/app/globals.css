@@ -1,26 +1,109 @@
 @import "tailwindcss";
+/* Design tokens for the SaaS UI. */
+
+/* Class-based dark mode (next-themes sets .dark on <html>). */
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --background: #f7f6fb;
+  --foreground: #12131c;
+  --card: #ffffff;
+  --card-foreground: #12131c;
+  --muted: #efedf6;
+  --muted-foreground: #5c6074;
+  --border: #e4e1ee;
+  --ring: #5b4dff;
+  --brand: #5b4dff;
+  --brand-foreground: #ffffff;
+  --success: #0c8f62;
+  --warning: #b45309;
+  --danger: #e11d48;
+  --danger-foreground: #ffffff;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #090a12;
+  --foreground: #f5f5f8;
+  --card: #13141f;
+  --card-foreground: #f5f5f8;
+  --muted: #1c1e2c;
+  --muted-foreground: #a4a7b8;
+  --border: #2a2c3d;
+  --ring: #a59bff;
+  --brand: #7c6dff;
+  --brand-foreground: #ffffff;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #fb7185;
+  --danger-foreground: #2a0a14;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-brand-50: #f4f2ff;
+  --color-brand-100: #e8e4ff;
+  --color-brand-200: #d4ccff;
+  --color-brand-300: #b4a6ff;
+  --color-brand-400: #8f7cff;
+  --color-brand-500: #6d5efc;
+  --color-brand-600: #5b4dff;
+  --color-brand-700: #4a3de0;
+  --color-brand-800: #3c32b4;
+  --color-brand-900: #322c8c;
+  --color-brand-950: #1c184f;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.25rem;
+  --shadow-card: 0 1px 2px rgb(18 19 28 / 0.05), 0 18px 40px rgb(91 77 255 / 0.07);
+  --shadow-pop: 0 16px 48px rgb(18 19 28 / 0.18);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+::selection {
+  background: #d4ccff;
+  color: #1c184f;
+}
+
+.dark ::selection {
+  background: #322c8c;
+  color: #f4f2ff;
+}
+
+.bg-mesh {
+  background-image:
+    radial-gradient(ellipse 80% 55% at 8% -10%, rgb(91 77 255 / 0.18), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 100% 0%, rgb(180 140 255 / 0.2), transparent 50%),
+    radial-gradient(ellipse 40% 30% at 70% 110%, rgb(91 77 255 / 0.08), transparent 50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

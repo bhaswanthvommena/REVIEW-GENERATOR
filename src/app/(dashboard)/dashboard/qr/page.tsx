@@ -1,7 +1,11 @@
 import Link from "next/link";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
 import { listBusinessesForOwner } from "@/modules/businesses";
+import { buildPublicFeedbackUrl, listQrCodesForBusiness } from "@/modules/qr";
 import { QrManager } from "./qr-manager";
 
 export default async function QrPage() {
@@ -12,28 +16,38 @@ export default async function QrPage() {
 
   if (!business) {
     return (
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold tracking-tight">QR codes</h2>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Create a business first, then generate printable QR codes.{" "}
-          <Link href="/dashboard/business" className="underline">
+      <EmptyState
+        title="Create a business first"
+        description="QR codes belong to a business. Add the profile, then come back to print a code."
+        action={
+          <Link href="/dashboard/business" className={buttonVariants()}>
             Create business
           </Link>
-        </p>
-      </section>
+        }
+      />
     );
   }
 
+  const qrCodes = await listQrCodesForBusiness(supabase, business.id);
+
   return (
-    <section className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">QR codes</h2>
-        <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-          For <span className="font-medium">{business.name}</span>. Print it or
-          share the link. Customers open it on their phone.
-        </p>
-      </div>
-      <QrManager businessId={business.id} />
-    </section>
+    <div className="space-y-6">
+      <PageHeader
+        title="QR codes"
+        description={`For ${business.name}. The card is ready to print. Download the PNG for a sharper copy.`}
+      />
+      <QrManager
+        businessId={business.id}
+        businessName={business.name}
+        initial={qrCodes.map((qr) => ({
+          id: qr.id,
+          label: qr.label,
+          is_active: qr.is_active,
+          publicUrl: buildPublicFeedbackUrl(qr.public_token),
+          created_at: qr.created_at,
+          revoked_at: qr.revoked_at,
+        }))}
+      />
+    </div>
   );
 }

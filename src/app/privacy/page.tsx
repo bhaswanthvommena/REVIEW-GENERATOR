@@ -1,50 +1,63 @@
-import Link from "next/link";
+import type { Metadata } from "next";
+import { LegalLayout } from "@/components/marketing/legal-layout";
 
-export const metadata = {
-  title: "Privacy — Review Generator",
+export const metadata: Metadata = {
+  title: "Privacy",
   description: "Privacy stub for the Review Generator MVP.",
 };
 
+const sections = [
+  { id: "who", label: "Who this covers" },
+  { id: "stored", label: "What we store" },
+  { id: "drafts", label: "Draft generation" },
+  { id: "deletion", label: "Deletion" },
+  { id: "stub", label: "Not legal advice" },
+];
+
 export default function PrivacyPage() {
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <p className="text-sm text-zinc-500">
-        <Link href="/" className="underline">
-          Review Generator
-        </Link>
-      </p>
-      <h1 className="mt-2 text-3xl font-semibold tracking-tight">Privacy</h1>
-      <p className="mt-4 text-zinc-600 dark:text-zinc-400">
-        This is an MVP stub, not legal advice. Replace with counsel-reviewed
-        policy before production launch.
-      </p>
-      <ul className="mt-6 list-disc space-y-2 pl-5 text-sm text-zinc-700 dark:text-zinc-300">
-        <li>
-          Business owners authenticate with Supabase Auth; account email is
-          stored by the auth provider.
-        </li>
-        <li>
-          Customers using a QR link do not create accounts. We store ratings,
-          optional free-text comments, generated draft text, and anonymous
-          analytics events tied to the business and QR token.
-        </li>
-        <li>
-          We do not require customer email or phone for the public feedback
-          flow.
-        </li>
-        <li>
-          Draft generation uses Google Gemini on the server. Customer comments
-          are sent to Gemini to produce editable drafts.
-        </li>
-        <li>
-          Deleting a business cascades related feedback, drafts, QR codes, and
-          analytics in the application database.
-        </li>
-        <li>
-          Contact the business owner or the operator of this deployment for
-          deletion requests until a formal DPO contact is published.
-        </li>
-      </ul>
-    </main>
+    <LegalLayout
+      title="Privacy"
+      lede="This is an MVP stub, not legal advice. Replace it with a counsel-reviewed policy before a public launch."
+      sections={sections}
+    >
+      <section id="who" className="scroll-mt-24">
+        <h2 className="text-xl font-semibold tracking-tight">Who this covers</h2>
+        <p className="mt-2">
+          Business owners authenticate with Supabase Auth. The auth provider stores the account
+          email. Customers who open a QR link do not create accounts.
+        </p>
+      </section>
+      <section id="stored" className="scroll-mt-24">
+        <h2 className="text-xl font-semibold tracking-tight">What we store</h2>
+        <p className="mt-2">
+          For a customer visit we store ratings, an optional free-text comment, the generated draft,
+          and anonymous analytics events tied to the business and QR. We do not ask for a customer
+          email or phone number in the public flow.
+        </p>
+      </section>
+      <section id="drafts" className="scroll-mt-24">
+        <h2 className="text-xl font-semibold tracking-tight">Draft generation</h2>
+        <p className="mt-2">
+          Drafts are produced by Google Gemini on the server. The customer comment is sent to Gemini
+          so the draft can reflect what they wrote. They can edit the draft before copying it.
+        </p>
+      </section>
+      <section id="deletion" className="scroll-mt-24">
+        <h2 className="text-xl font-semibold tracking-tight">Deletion</h2>
+        <p className="mt-2">
+          Deleting a business cascades related feedback, drafts, QR codes, and analytics in the
+          application database. Until a formal contact is published, send deletion requests to the
+          business owner or the operator of this deployment.
+        </p>
+      </section>
+      <section id="stub" className="scroll-mt-24">
+        <h2 className="text-xl font-semibold tracking-tight">Not legal advice</h2>
+        <p className="mt-2">
+          This page describes the MVP data flow. It is not a complete privacy policy and should be
+          replaced before production launch.
+        </p>
+      </section>
+    </LegalLayout>
   );
 }

@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,10 +13,30 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
 export const metadata: Metadata = {
-  title: "Review Generator",
+  metadataBase: new URL(appUrl),
+  title: {
+    default: "Review Generator",
+    template: "%s · Review Generator",
+  },
   description:
-    "AI-assisted review drafts for local businesses — QR feedback to Google review links.",
+    "Help local customers write honest Google reviews. They scan a QR, rate the visit, and copy an AI draft — you never post for them.",
+  openGraph: {
+    title: "Review Generator",
+    description:
+      "QR feedback that becomes an editable Google review draft. No gating. No auto-post.",
+    type: "website",
+    siteName: "Review Generator",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f6fb" },
+    { media: "(prefers-color-scheme: dark)", color: "#090a12" },
+  ],
 };
 
 export default function RootLayout({
@@ -26,9 +47,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col font-sans">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

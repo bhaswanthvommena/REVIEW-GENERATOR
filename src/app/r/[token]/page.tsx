@@ -9,8 +9,8 @@ export default function PublicFeedbackPage({ params }: PageProps) {
   return (
     <Suspense
       fallback={
-        <main className="mx-auto flex min-h-full w-full max-w-lg flex-col px-5 pt-6 pb-8">
-          <p className="text-sm text-zinc-500">Loading…</p>
+        <main className="mx-auto flex min-h-full w-full max-w-lg flex-col px-5 pt-8 pb-8">
+          <p className="text-sm text-muted-foreground">Opening feedback…</p>
         </main>
       }
     >
@@ -22,7 +22,7 @@ export default function PublicFeedbackPage({ params }: PageProps) {
 async function PublicFeedback({ params }: PageProps) {
   const { token } = await params;
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-lg flex-col px-5 pt-6 pb-8">
+    <main className="bg-mesh mx-auto flex min-h-full w-full max-w-lg flex-1 flex-col self-center px-5 pt-8 pb-8">
       <PublicFeedbackFlow token={token} />
     </main>
   );

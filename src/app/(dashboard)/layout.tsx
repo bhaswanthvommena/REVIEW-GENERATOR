@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { AppShell } from "@/components/dashboard/app-shell";
+import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/modules/auth";
 import { listBusinessesForOwner } from "@/modules/businesses";
-import { DashboardNav } from "./dashboard-nav";
 
 /** Owner session via cookies — allowed to block instant navigation. */
 export const instant = false;
@@ -22,9 +23,19 @@ export default function DashboardLayout({
 
 function DashboardFallback() {
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-5 pt-5 pb-28">
-      <p className="text-base font-semibold tracking-tight">Review Generator</p>
-      <p className="py-6 text-sm text-zinc-500">Loading your dashboard…</p>
+    <div className="flex min-h-full flex-1 flex-col bg-background md:grid md:grid-cols-[15rem_minmax(0,1fr)]">
+      <div className="hidden border-r border-border p-4 md:block">
+        <Skeleton className="h-8 w-36" />
+        <div className="mt-6 space-y-2">
+          <Skeleton className="h-11 w-full" />
+          <Skeleton className="h-11 w-full" />
+          <Skeleton className="h-11 w-full" />
+        </div>
+      </div>
+      <div className="px-4 py-6 md:px-8">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="mt-6 h-32 w-full" />
+      </div>
     </div>
   );
 }
@@ -41,32 +52,16 @@ async function DashboardSession({
   }
 
   const businesses = await listBusinessesForOwner(supabase, user.id);
-  const setupHref = businesses[0]
-    ? `/dashboard/business/${businesses[0].id}`
-    : "/dashboard/business";
+  const business = businesses[0] ?? null;
+  const setupHref = business ? `/dashboard/business/${business.id}` : "/dashboard/business";
 
   return (
-    <>
-      <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-5 pt-5 pb-28">
-        <header className="flex items-center justify-between gap-3">
-          <p className="text-base font-semibold tracking-tight">
-            Review Generator
-          </p>
-          <form action="/auth/signout" method="post">
-            <button
-              type="submit"
-              className="min-h-11 px-2 text-sm text-zinc-600 dark:text-zinc-400"
-            >
-              Sign out
-            </button>
-          </form>
-        </header>
-        <div className="py-6">{children}</div>
-        <p className="mt-auto text-xs text-zinc-500">
-          Signed in as {user.email ?? user.id}
-        </p>
-      </div>
-      <DashboardNav setupHref={setupHref} />
-    </>
+    <AppShell
+      setupHref={setupHref}
+      email={user.email ?? user.id}
+      businessName={business?.name ?? null}
+    >
+      {children}
+    </AppShell>
   );
 }

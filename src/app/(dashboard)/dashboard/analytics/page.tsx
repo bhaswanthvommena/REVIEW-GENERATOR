@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { createClient } from "@/lib/supabase/server";
 import { getFunnelSummaryForBusiness } from "@/modules/analytics";
 import { requireUser } from "@/modules/auth";
@@ -13,31 +16,27 @@ export default async function AnalyticsPage() {
 
   if (!business) {
     return (
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold tracking-tight">Analytics</h2>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Create a business to see funnel counts.{" "}
-          <Link href="/dashboard/business" className="underline">
+      <EmptyState
+        title="Create a business to see the funnel"
+        description="Scans, drafts, and Continue to Google clicks show up after the first QR is live."
+        action={
+          <Link href="/dashboard/business" className={buttonVariants()}>
             Create business
           </Link>
-        </p>
-      </section>
+        }
+      />
     );
   }
 
   const funnel = await getFunnelSummaryForBusiness(supabase, business.id, {});
 
   return (
-    <section className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Funnel analytics</h2>
-        <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-          For <span className="font-medium">{business.name}</span>. Counts are
-          click-through events only — we do not know if a Google review was
-          published.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Funnel"
+        description={`For ${business.name}. These are click-through counts only — a Continue click is not a published Google review.`}
+      />
       <AnalyticsFunnel businessId={business.id} initial={funnel} />
-    </section>
+    </div>
   );
 }

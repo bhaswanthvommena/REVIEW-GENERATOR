@@ -2,6 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { Alert } from "@/components/ui/alert";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 type Props = {
   businessId?: string;
@@ -20,14 +26,11 @@ export function BusinessForm({ businessId, initial }: Props) {
   const [slug, setSlug] = useState(initial?.slug ?? "");
   const [category, setCategory] = useState(initial?.category ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
-  const [googleReviewUrl, setGoogleReviewUrl] = useState(
-    initial?.googleReviewUrl ?? "",
-  );
-  const [showDetails, setShowDetails] = useState(
-    Boolean(initial?.slug || initial?.description),
-  );
+  const [googleReviewUrl, setGoogleReviewUrl] = useState(initial?.googleReviewUrl ?? "");
+  const [showDetails, setShowDetails] = useState(Boolean(initial?.slug || initial?.description));
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const canTest = googleReviewUrl.trim().startsWith("https://");
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -55,10 +58,10 @@ export function BusinessForm({ businessId, initial }: Props) {
         business?: { id: string };
         error?: { message: string };
       };
-      if (!response.ok) {
+      if (!response.ok || !body.business) {
         throw new Error(body.error?.message ?? "Request failed");
       }
-      router.push(`/dashboard/business/${body.business!.id}`);
+      router.push(`/dashboard/business/${body.business.id}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -67,82 +70,102 @@ export function BusinessForm({ businessId, initial }: Props) {
     }
   }
 
-  const fieldClass =
-    "min-h-12 rounded-xl border border-zinc-300 bg-transparent px-3 text-base dark:border-zinc-700";
-
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <label className="flex flex-col gap-1.5 text-sm">
-        Business name
-        <input
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={fieldClass}
-        />
-      </label>
-      <label className="flex flex-col gap-1.5 text-sm">
-        Category
-        <input
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          placeholder="Cafe, salon, clinic"
-          className={fieldClass}
-        />
-      </label>
-      <label className="flex flex-col gap-1.5 text-sm">
-        Google review URL
-        <input
-          required
-          type="url"
-          inputMode="url"
-          value={googleReviewUrl}
-          onChange={(e) => setGoogleReviewUrl(e.target.value)}
-          placeholder="https://g.page/r/…/review"
-          className={fieldClass}
-        />
-      </label>
-
-      <button
-        type="button"
-        className="self-start text-sm text-zinc-600 underline dark:text-zinc-400"
-        onClick={() => setShowDetails((open) => !open)}
-      >
-        {showDetails ? "Hide details" : "More details"}
-      </button>
-      {showDetails ? (
-        <>
-          <label className="flex flex-col gap-1.5 text-sm">
-            Slug (optional)
-            <input
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder="cafe-luna"
-              className={fieldClass}
+    <form onSubmit={onSubmit} className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile</CardTitle>
+          <CardDescription>The name customers see on the feedback page.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Field label="Business name" htmlFor="business-name">
+            <Input
+              id="business-name"
+              required
+              value={name}
+              onChange={(event) => setName(event.target.value)}
             />
-          </label>
-          <label className="flex flex-col gap-1.5 text-sm">
-            Description (optional)
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className={`${fieldClass} py-3`}
+          </Field>
+          <Field label="Category" htmlFor="business-category" hint="Cafe, salon, clinic">
+            <Input
+              id="business-category"
+              value={category}
+              placeholder="Cafe, salon, clinic"
+              aria-describedby="business-category-hint"
+              onChange={(event) => setCategory(event.target.value)}
             />
-          </label>
-        </>
-      ) : null}
+          </Field>
+          <button
+            type="button"
+            className="self-start text-sm font-medium text-brand underline-offset-4 hover:underline"
+            onClick={() => setShowDetails((open) => !open)}
+          >
+            {showDetails ? "Hide details" : "More details"}
+          </button>
+          {showDetails ? (
+            <>
+              <Field label="Slug" htmlFor="business-slug" hint="Lowercase words separated by hyphens.">
+                <Input
+                  id="business-slug"
+                  value={slug}
+                  placeholder="cafe-luna"
+                  aria-describedby="business-slug-hint"
+                  onChange={(event) => setSlug(event.target.value)}
+                />
+              </Field>
+              <Field label="Description" htmlFor="business-description">
+                <Textarea
+                  id="business-description"
+                  value={description}
+                  rows={3}
+                  onChange={(event) => setDescription(event.target.value)}
+                />
+              </Field>
+            </>
+          ) : null}
+        </CardContent>
+      </Card>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="min-h-12 rounded-xl bg-zinc-900 px-4 text-base font-medium text-white disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
-      >
-        {pending ? "Saving…" : businessId ? "Save" : "Create business"}
-      </button>
-      {error ? (
-        <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
-      ) : null}
+      <Card>
+        <CardHeader>
+          <CardTitle>Google review link</CardTitle>
+          <CardDescription>
+            Paste the official link from your Google Business Profile. https only.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Field label="Google review URL" htmlFor="google-review-url">
+            <Input
+              id="google-review-url"
+              required
+              type="url"
+              inputMode="url"
+              value={googleReviewUrl}
+              placeholder="https://g.page/r/…/review"
+              onChange={(event) => setGoogleReviewUrl(event.target.value)}
+            />
+          </Field>
+          {canTest ? (
+            <a
+              href={googleReviewUrl.trim()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              Test link
+            </a>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Paste an https link to open it and confirm it is the right page.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {error ? <Alert tone="danger">{error}</Alert> : null}
+      <Button type="submit" size="lg" loading={pending} className="sm:w-auto">
+        {businessId ? "Save changes" : "Create business"}
+      </Button>
     </form>
   );
 }
