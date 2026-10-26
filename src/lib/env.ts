@@ -19,24 +19,38 @@ const serverSchema = publicSchema.extend({
 export type PublicEnv = z.infer<typeof publicSchema>;
 export type ServerEnv = z.infer<typeof serverSchema>;
 
+/** Blank assignments in `.env` are unset, not invalid values. */
+function blankToUndefined(value: string | undefined): string | undefined {
+  if (value === undefined || value.trim() === "") {
+    return undefined;
+  }
+  return value;
+}
+
 function readPublicEnv(): PublicEnv {
   return publicSchema.parse({
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    NEXT_PUBLIC_APP_URL: blankToUndefined(process.env.NEXT_PUBLIC_APP_URL),
+    NEXT_PUBLIC_SUPABASE_URL: blankToUndefined(process.env.NEXT_PUBLIC_SUPABASE_URL),
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: blankToUndefined(
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    ),
+    NEXT_PUBLIC_SENTRY_DSN: blankToUndefined(process.env.NEXT_PUBLIC_SENTRY_DSN),
   });
 }
 
 function readServerEnv(): ServerEnv {
   return serverSchema.parse({
     ...readPublicEnv(),
-    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-    GEMINI_MODEL: process.env.GEMINI_MODEL,
-    UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
-    UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
-    SENTRY_DSN: process.env.SENTRY_DSN,
+    SUPABASE_SERVICE_ROLE_KEY: blankToUndefined(
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+    ),
+    GEMINI_API_KEY: blankToUndefined(process.env.GEMINI_API_KEY),
+    GEMINI_MODEL: blankToUndefined(process.env.GEMINI_MODEL),
+    UPSTASH_REDIS_REST_URL: blankToUndefined(process.env.UPSTASH_REDIS_REST_URL),
+    UPSTASH_REDIS_REST_TOKEN: blankToUndefined(
+      process.env.UPSTASH_REDIS_REST_TOKEN,
+    ),
+    SENTRY_DSN: blankToUndefined(process.env.SENTRY_DSN),
   });
 }
 

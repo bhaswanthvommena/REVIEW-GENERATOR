@@ -1,4 +1,4 @@
-<!-- BEGIN:nextjs-agent-rules -->
+﻿<!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know
 
@@ -19,7 +19,7 @@ Modular monolith: Next.js App Router + Supabase + Gemini API + Upstash + Sentry 
 - **No auto-post to Google.** Customers copy drafts and post themselves; we track click-throughs only.
 - **No Stripe in MVP.** Billing module is a stub + nullable schema seams only.
 - **AI provider = Gemini API** (`GEMINI_API_KEY` / `GEMINI_MODEL`). Do **not** introduce OpenAI SDKs or `OPENAI_*` env vars. Calls are **server-only** (`src/lib/gemini/`, `src/modules/ai`).
-- **Multi-attribute ratings (1–5) + optional comment**; ratings never gate Google.
+- **Multi-attribute ratings (1–5) + owner-defined text fields** (`fields` module; each can be required or optional); ratings and field answers never gate Google.
 - Customers are anonymous QR token-holders; only business owners have accounts.
 - **No `orgs` table** in MVP; tenant = `business_id` + `owner_id`.
 
@@ -27,9 +27,9 @@ Modular monolith: Next.js App Router + Supabase + Gemini API + Upstash + Sentry 
 
 ```
 src/app/          App Router pages + /api/v1 route handlers (+ /privacy, /terms)
-src/modules/      auth | businesses | attributes | qr | feedback | ai | analytics | google-link | billing
+src/modules/      auth | businesses | attributes | fields | qr | feedback | ai | analytics | google-link | billing
 src/lib/          supabase | gemini | rate-limit | env | api
-prompts/          review-draft/v1.md
+prompts/          review-draft/v1.md (retired), v2.md (current)
 supabase/         migrations + config
 evals/            dataset.jsonl + graders
 docs/             smoke.md | production-checklist.md

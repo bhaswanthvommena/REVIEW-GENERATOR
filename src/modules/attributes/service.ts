@@ -10,6 +10,7 @@ export async function listAttributesForBusiness(
     .from("rating_attributes")
     .select("*")
     .eq("business_id", businessId)
+    .is("deleted_at", null)
     .order("display_order", { ascending: true });
 
   if (error) {
@@ -56,6 +57,7 @@ export async function updateAttribute(
     .update(patch)
     .eq("id", attributeId)
     .eq("business_id", businessId)
+    .is("deleted_at", null)
     .select("*")
     .single();
 
@@ -70,13 +72,22 @@ export async function deleteAttribute(
   attributeId: string,
   businessId: string,
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("rating_attributes")
-    .delete()
+    .update({
+      is_active: false,
+      deleted_at: new Date().toISOString(),
+    })
     .eq("id", attributeId)
-    .eq("business_id", businessId);
+    .eq("business_id", businessId)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     throw new Error(error.message);
+  }
+  if (!data) {
+    throw new Error("Question not found");
   }
 }

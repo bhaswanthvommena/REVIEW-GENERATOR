@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+﻿import { expect, test } from "@playwright/test";
 
 /**
  * Lightweight smoke without Supabase/DB.
@@ -56,8 +56,8 @@ test("customer flow keeps Continue to Google available at a low rating", async (
           draft: {
             id: "00000000-0000-0000-0000-000000000098",
             text: "I had a pleasant visit and the service was quick.",
-            model: "gemini-3.8-flash",
-            promptVersion: "review-draft/v1",
+            model: "gemini-3.5-flash-lite",
+            promptVersion: "review-draft/v2",
             warnings: [],
           },
           googleReviewUrl,
@@ -89,6 +89,24 @@ test("customer flow keeps Continue to Google available at a low rating", async (
             displayOrder: 1,
           },
         ],
+        fields: [
+          {
+            id: "00000000-0000-0000-0000-000000000020",
+            label: "Car make and model",
+            inputType: "short",
+            isRequired: true,
+            displayOrder: 1,
+            maxLength: 120,
+          },
+          {
+            id: "00000000-0000-0000-0000-000000000021",
+            label: "Comment",
+            inputType: "long",
+            isRequired: false,
+            displayOrder: 2,
+            maxLength: 1000,
+          },
+        ],
         googleCtaPolicy: "always_available_no_rating_gate",
       }),
     });
@@ -105,7 +123,14 @@ test("customer flow keeps Continue to Google available at a low rating", async (
   await page.getByRole("radio", { name: "Service: 2 out of 5, Fair" }).check({ force: true });
   await expect(google).toBeEnabled();
 
-  await page.getByRole("button", { name: "Write my review" }).click();
+  // A required custom field blocks drafting, but never Continue to Google.
+  const write = page.getByRole("button", { name: "Write my review" });
+  await expect(write).toBeDisabled();
+  await expect(google).toBeEnabled();
+
+  await page.getByLabel(/Car make and model/).fill("Tata Nexon");
+  await expect(write).toBeEnabled();
+  await write.click();
   await expect(page.getByRole("heading", { name: "Your review" })).toBeVisible();
   await expect(page.getByLabel("Draft")).toHaveValue(/pleasant visit/);
   await expect(page.getByRole("link", { name: "Continue to Google" })).toBeEnabled();
@@ -121,3 +146,4 @@ test.describe("public QR flow (live DB)", () => {
     expect(true).toBe(true);
   });
 });
+

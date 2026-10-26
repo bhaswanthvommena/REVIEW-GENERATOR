@@ -15,6 +15,16 @@ export const FeedbackSubmitSchema = z.object({
       // Strip control chars except newline/tab
       return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "");
     }),
+  answers: z
+    .array(
+      z.object({
+        fieldId: z.string().uuid(),
+        value: z.string().max(2000),
+      }),
+    )
+    .max(50)
+    .optional()
+    .default([]),
   ratings: z
     .array(
       z.object({
@@ -26,6 +36,65 @@ export const FeedbackSubmitSchema = z.object({
 });
 
 export type FeedbackSubmitInput = z.infer<typeof FeedbackSubmitSchema>;
+
+export type AnswerFieldRule = {
+  id: string;
+  label: string;
+  isRequired: boolean;
+  maxLength: number;
+};
+
+export type CleanFieldAnswer = {
+  fieldId: string;
+  label: string;
+  value: string;
+};
+
+function cleanAnswerText(value: string): string {
+  return value
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .trim();
+}
+
+/**
+ * Check customer answers against the business's active fields. Blank answers
+ * to optional fields are dropped. Returns only non-empty, cleaned answers.
+ */
+export function assertFieldAnswers(
+  fields: AnswerFieldRule[],
+  answers: Array<{ fieldId: string; value: string }>,
+): CleanFieldAnswer[] {
+  const byId = new Map(fields.map((field) => [field.id, field]));
+  const values = new Map<string, string>();
+
+  for (const answer of answers) {
+    const field = byId.get(answer.fieldId);
+    if (!field) {
+      throw new Error("Unexpected field in answers payload");
+    }
+    if (values.has(answer.fieldId)) {
+      throw new Error("Duplicate answer for a field");
+    }
+    const value = cleanAnswerText(answer.value);
+    if (value.length > field.maxLength) {
+      throw new Error(`"${field.label}" is too long`);
+    }
+    values.set(answer.fieldId, value);
+  }
+
+  const clean: CleanFieldAnswer[] = [];
+  for (const field of fields) {
+    const value = values.get(field.id) ?? "";
+    if (value === "") {
+      if (field.isRequired) {
+        throw new Error(`"${field.label}" is required`);
+      }
+      continue;
+    }
+    clean.push({ fieldId: field.id, label: field.label, value });
+  }
+  return clean;
+}
 
 /** Ensure every required attribute id is rated exactly once; none may be missing. */
 export function assertCompleteAttributeRatings(

@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   assertCompleteAttributeRatings,
+  assertFieldAnswers,
+  type AnswerFieldRule,
   type FeedbackSubmitInput,
 } from "./schemas";
 import { DEFAULT_SESSION_TTL_HOURS, type FeedbackSession } from "./types";
@@ -91,6 +93,7 @@ export async function completeFeedback(
     tokenBusinessId: string;
     tokenQrCodeId: string;
     requiredAttributeIds: string[];
+    fields?: AnswerFieldRule[];
     input: FeedbackSubmitInput;
   },
 ): Promise<FeedbackSession> {
@@ -120,6 +123,9 @@ export async function completeFeedback(
     args.input.ratings,
   );
 
+  // Validate before any write so a bad answer never leaves half a submission.
+  const answers = assertFieldAnswers(args.fields ?? [], args.input.answers);
+
   const ratingRows = args.input.ratings.map((row) => ({
     session_id: session.id,
     attribute_id: row.attributeId,
@@ -135,6 +141,34 @@ export async function completeFeedback(
     throw new Error(ratingsError.message);
   }
 
+  const sessionId = session.id;
+  async function undoWrites() {
+    await service.from("feedback_ratings").delete().eq("session_id", sessionId);
+    await service
+      .from("feedback_field_answers")
+      .delete()
+      .eq("session_id", sessionId);
+  }
+
+  if (answers.length > 0) {
+    const { error: answersError } = await service
+      .from("feedback_field_answers")
+      .insert(
+        answers.map((answer) => ({
+          session_id: session.id,
+          field_id: answer.fieldId,
+          business_id: session.business_id,
+          label: answer.label,
+          value: answer.value,
+        })),
+      );
+
+    if (answersError) {
+      await undoWrites();
+      throw new Error(answersError.message);
+    }
+  }
+
   const { data, error } = await service
     .from("feedback_sessions")
     .update({
@@ -148,6 +182,7 @@ export async function completeFeedback(
     .single();
 
   if (error) {
+    await undoWrites();
     throw new Error(error.message);
   }
 

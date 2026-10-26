@@ -48,6 +48,31 @@ export type RatingAttributeRow = {
   label: string;
   display_order: number;
   is_active: boolean;
+  deleted_at: string | null;
+  created_at: string;
+};
+
+export type FeedbackFieldInputType = "short" | "long";
+
+export type FeedbackFieldRow = {
+  id: string;
+  business_id: string;
+  label: string;
+  input_type: FeedbackFieldInputType;
+  is_required: boolean;
+  is_active: boolean;
+  display_order: number;
+  deleted_at: string | null;
+  created_at: string;
+};
+
+export type FeedbackFieldAnswerRow = {
+  id: string;
+  session_id: string;
+  field_id: string | null;
+  business_id: string;
+  label: string;
+  value: string;
   created_at: string;
 };
 
@@ -66,7 +91,7 @@ export type FeedbackSessionRow = {
 export type FeedbackRatingRow = {
   id: string;
   session_id: string;
-  attribute_id: string;
+  attribute_id: string | null;
   business_id: string;
   rating: number;
   created_at: string;

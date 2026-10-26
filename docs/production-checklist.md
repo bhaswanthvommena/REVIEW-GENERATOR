@@ -5,7 +5,7 @@ Use this before promoting a staging build to production. Check items only after 
 ## Product / policy
 
 - [ ] Owner can sign up/in, create a business, paste an allowlisted Google review URL, download QR.
-- [ ] Customer can open `/r/:token` → rate attributes → optional comment → Gemini draft → copy → Continue to Google.
+- [ ] Customer can open `/r/:token` → rate attributes → fill owner-defined fields (required ones block drafting only, never Continue to Google) → Gemini draft (`review-draft/v2`) → copy → Continue to Google.
 - [ ] Continue to Google is **never** gated by ratings or draft quality.
 - [ ] No Google Business Profile OAuth/credentials; no auto-post; analytics track click-throughs only.
 - [ ] No OpenAI / `OPENAI_*` env; Gemini key is server-only (`GEMINI_API_KEY`).

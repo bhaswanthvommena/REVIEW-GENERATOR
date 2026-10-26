@@ -1,18 +1,32 @@
-import { ThinkingLevel, type GoogleGenAI } from "@google/genai";
+﻿import { ThinkingLevel, type GoogleGenAI } from "@google/genai";
 import { createGeminiClient, requireGeminiEnv } from "@/lib/gemini";
-import { buildUserPayload, getPromptVersion, loadSystemPrompt } from "./prompt";
+import {
+  buildUserPayload,
+  collectDetails,
+  getPromptVersion,
+  loadSystemPrompt,
+  type DraftDetail,
+} from "./prompt";
+import { pickStyleBrief, type Rng } from "./style";
 import {
   DRAFT_RESPONSE_JSON_SCHEMA,
   DraftModelOutputSchema,
   faithfulnessHeuristic,
+  faithfulnessToDetails,
   postValidateDraft,
   type DraftModelOutput,
 } from "./schemas";
 
 export type GenerateDraftInput = {
   businessName: string;
+  businessCategory?: string | null;
   ratings: Array<{ label: string; rating: number }>;
-  comment: string | null;
+  /** Answers to the owner's custom fields. */
+  fields?: DraftDetail[];
+  /** Legacy comment from sessions made before custom fields. */
+  comment?: string | null;
+  /** Earlier draft for this session, passed on regenerate. */
+  previousDraft?: string | null;
 };
 
 export type GenerateDraftResult = {
@@ -58,8 +72,7 @@ function defaultGeminiGenerate(client: GoogleGenAI): GeminiGenerateFn {
         systemInstruction: system,
         responseMimeType: "application/json",
         responseJsonSchema: DRAFT_RESPONSE_JSON_SCHEMA,
-        // A short review does not need a long reasoning pass. Gemini 3
-        // otherwise thinks by default, which is what stretched drafts to minutes.
+        // Flash-Lite defaults to minimal thinking, which keeps short drafts fast.
         thinkingConfig: {
           thinkingLevel: ThinkingLevel.MINIMAL,
           includeThoughts: false,
@@ -100,6 +113,7 @@ export async function generateReviewDraft(
   options?: {
     generate?: GeminiGenerateFn;
     model?: string;
+    rng?: Rng;
   },
 ): Promise<GenerateDraftResult> {
   const { model: defaultModel } = requireGeminiEnv();
@@ -109,12 +123,31 @@ export async function generateReviewDraft(
   const system = loadSystemPrompt();
   const promptVersion = getPromptVersion();
 
+  const rng = options?.rng ?? Math.random;
+  const details = collectDetails({ details: input.fields });
+  const brief = pickStyleBrief(
+    collectDetails({ details: input.fields, comment: input.comment }).map(
+      (d) => d.label,
+    ),
+    rng,
+  );
+
   let lastUsage: GenerateDraftResult["usage"] = {};
   let lastReasons: string[] = [];
 
   for (let attempt = 0; attempt < 2; attempt++) {
     const stricter = attempt === 1;
-    const user = buildUserPayload({ ...input, stricter });
+    const user = buildUserPayload({
+      businessName: input.businessName,
+      businessCategory: input.businessCategory,
+      ratings: input.ratings,
+      details: input.fields,
+      comment: input.comment,
+      previousDraft: input.previousDraft,
+      brief,
+      stricter,
+      rng,
+    });
 
     let rawText: string;
     try {
@@ -142,10 +175,12 @@ export async function generateReviewDraft(
     }
 
     const post = postValidateDraft(modelOut.draft_text);
-    const faith = faithfulnessHeuristic(input.comment, modelOut.draft_text);
+    const faith = faithfulnessToDetails(details, modelOut.draft_text);
+    const commentFaith = faithfulnessHeuristic(input.comment, modelOut.draft_text);
     const reasons = [
       ...(post.ok ? [] : post.reasons),
       ...(faith.ok ? [] : [faith.reason]),
+      ...(commentFaith.ok ? [] : [commentFaith.reason]),
     ];
 
     if (reasons.length === 0) {
@@ -171,3 +206,4 @@ export async function generateReviewDraft(
     `Could not produce a valid draft: ${lastReasons.join("; ")}`,
   );
 }
+

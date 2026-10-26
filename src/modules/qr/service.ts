@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { FIELD_MAX_LENGTH } from "@/modules/fields";
 import { buildPublicFeedbackUrl, generatePublicToken } from "./token";
 import type { QrCreateInput } from "./schemas";
 import type { PublicQrResolve, QrCode } from "./types";
@@ -134,10 +135,24 @@ export async function resolveActiveQrByToken(
     .select("id, label, display_order")
     .eq("business_id", business.id)
     .eq("is_active", true)
+    .is("deleted_at", null)
     .order("display_order", { ascending: true });
 
   if (attrError) {
     throw new Error(attrError.message);
+  }
+
+  const { data: fieldRows, error: fieldError } = await service
+    .from("feedback_fields")
+    .select("id, label, input_type, is_required, display_order")
+    .eq("business_id", business.id)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (fieldError) {
+    throw new Error(fieldError.message);
   }
 
   return {
@@ -150,5 +165,16 @@ export async function resolveActiveQrByToken(
       label: row.label as string,
       displayOrder: row.display_order as number,
     })),
+    fields: (fieldRows ?? []).map((row) => {
+      const inputType = row.input_type === "long" ? "long" : "short";
+      return {
+        id: row.id as string,
+        label: row.label as string,
+        inputType,
+        isRequired: Boolean(row.is_required),
+        displayOrder: row.display_order as number,
+        maxLength: FIELD_MAX_LENGTH[inputType],
+      };
+    }),
   };
 }

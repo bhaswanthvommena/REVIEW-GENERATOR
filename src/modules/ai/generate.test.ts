@@ -1,10 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+﻿import { describe, expect, it, vi } from "vitest";
 import { generateReviewDraft } from "./generate";
 
 vi.mock("@/lib/gemini", () => ({
   requireGeminiEnv: () => ({
     apiKey: "test-key",
-    model: "gemini-3.8-flash",
+    model: "gemini-3.5-flash-lite",
   }),
   createGeminiClient: () => ({}),
 }));
@@ -32,8 +32,8 @@ describe("generateReviewDraft (mocked Gemini)", () => {
       },
     );
 
-    expect(result.promptVersion).toBe("review-draft/v1");
-    expect(result.model).toBe("gemini-3.8-flash");
+    expect(result.promptVersion).toBe("review-draft/v2");
+    expect(result.model).toBe("gemini-3.5-flash-lite");
     expect(result.draftText.toLowerCase()).toContain("espresso");
     expect(result.validation.postValidateOk).toBe(true);
   });
@@ -70,3 +70,4 @@ describe("generateReviewDraft (mocked Gemini)", () => {
     expect(result.validation.retries).toBe(1);
   });
 });
+

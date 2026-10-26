@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const PROMPT_VERSION = "review-draft/v1" as const;
+export const PROMPT_VERSION = "review-draft/v2" as const;
 
 export const DraftModelOutputSchema = z.object({
   draft_text: z.string().trim().min(1).max(4000),
@@ -128,4 +128,58 @@ export function faithfulnessHeuristic(
     };
   }
   return { ok: true };
+}
+
+const INJECTION_LIKE =
+  /ignore\s+previous\s+instructions|system\s+prompt|discount\s+code|FREE\d+/i;
+
+const DETAIL_STOP_WORDS = new Set([
+  "the", "and", "for", "was", "were", "with", "this", "that", "have", "had",
+  "from", "they", "them", "very", "just", "about", "into", "our", "their",
+  "not", "are", "but", "you", "all", "any", "can", "has",
+]);
+
+function detailTokens(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 3 && !DETAIL_STOP_WORDS.has(word));
+}
+
+/**
+ * Check that the draft uses what the customer typed into the owner's fields.
+ * Short answers (a car model, an item) need a matching word in at least half
+ * of the cases. Long answers fall back to the comment heuristic.
+ */
+export function faithfulnessToDetails(
+  details: Array<{ label: string; value: string }>,
+  draftText: string,
+): { ok: true } | { ok: false; reason: string } {
+  const usable = details.filter(
+    (detail) => detail.value.trim() !== "" && !INJECTION_LIKE.test(detail.value),
+  );
+  const draftLower = draftText.toLowerCase();
+
+  const shortDetails = usable.filter((detail) => detail.value.length <= 80);
+  const shortWithTokens = shortDetails.filter(
+    (detail) => detailTokens(detail.value).length > 0,
+  );
+  if (shortWithTokens.length > 0) {
+    const hits = shortWithTokens.filter((detail) =>
+      detailTokens(detail.value).some((token) => draftLower.includes(token)),
+    ).length;
+    if (hits < Math.ceil(shortWithTokens.length / 2)) {
+      return {
+        ok: false,
+        reason: "Draft may not mention the details the customer gave",
+      };
+    }
+  }
+
+  const longText = usable
+    .filter((detail) => detail.value.length > 80)
+    .map((detail) => detail.value)
+    .join(" ");
+  return longText ? faithfulnessHeuristic(longText, draftText) : { ok: true };
 }

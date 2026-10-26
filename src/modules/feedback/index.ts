@@ -1,6 +1,9 @@
 export {
   FeedbackSubmitSchema,
   assertCompleteAttributeRatings,
+  assertFieldAnswers,
+  type AnswerFieldRule,
+  type CleanFieldAnswer,
   type FeedbackSubmitInput,
 } from "./schemas";
 export type { FeedbackSession } from "./types";

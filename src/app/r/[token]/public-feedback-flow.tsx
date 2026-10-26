@@ -2,16 +2,27 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/cn";
 
 type Attribute = { id: string; label: string; displayOrder: number };
 
+type CustomField = {
+  id: string;
+  label: string;
+  inputType: "short" | "long";
+  isRequired: boolean;
+  displayOrder: number;
+  maxLength: number;
+};
+
 type ResolvePayload = {
   businessName: string;
   googleReviewUrl: string;
   attributes: Attribute[];
+  fields?: CustomField[];
 };
 
 type Step = "loading" | "rate" | "draft" | "error";
@@ -96,7 +107,8 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
   const [googleReviewUrl, setGoogleReviewUrl] = useState("");
   const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [ratings, setRatings] = useState<Record<string, number | undefined>>({});
-  const [comment, setComment] = useState("");
+  const [fields, setFields] = useState<CustomField[]>([]);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [draftText, setDraftText] = useState("");
   const [draftWarnings, setDraftWarnings] = useState<string[]>([]);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
@@ -129,6 +141,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         setBusinessName(resolveBody.businessName);
         setGoogleReviewUrl(resolveBody.googleReviewUrl);
         setAttributes(resolveBody.attributes);
+        setFields(resolveBody.fields ?? []);
         setRatings(
           Object.fromEntries(resolveBody.attributes.map((attr) => [attr.id, undefined])),
         );
@@ -179,6 +192,22 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
       }),
     [attributes, ratings],
   );
+
+  const requiredFieldsFilled = useMemo(
+    () =>
+      fields.every(
+        (field) => !field.isRequired || (answers[field.id] ?? "").trim().length > 0,
+      ),
+    [fields, answers],
+  );
+
+  const canSubmit = allRated && requiredFieldsFilled;
+  const readyHint =
+    step === "rate" && !canSubmit
+      ? !requiredFieldsFilled
+        ? "Fill in the required fields and rate every question."
+        : "Rate every question to continue."
+      : null;
 
   async function emitEvent(
     eventType: "draft_copied" | "google_continue_clicked",
@@ -237,7 +266,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
 
   function onSubmitFeedback() {
     const currentSessionId = sessionIdRef.current;
-    if (!currentSessionId || !allRated) return;
+    if (!currentSessionId || !canSubmit) return;
     startTransition(async () => {
       setErrorMessage(null);
       setStatusMessage("Saving your ratings…");
@@ -247,7 +276,12 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sessionId: currentSessionId,
-            comment: comment.trim() || null,
+            answers: fields
+              .map((field) => ({
+                fieldId: field.id,
+                value: (answers[field.id] ?? "").trim(),
+              }))
+              .filter((answer) => answer.value !== ""),
             ratings: attributes.map((attr) => ({
               attributeId: attr.id,
               rating: ratings[attr.id],
@@ -439,9 +473,71 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
                 How was your visit?
               </h1>
               <p className="mt-2 text-base text-muted-foreground">
-                Tap the stars. Nothing is selected for you, and a low rating never hides Google.
+                {fields.length > 0
+                  ? "Tell us a little, then tap the stars. "
+                  : "Tap the stars. "}
+                Nothing is selected for you, and a low rating never hides Google.
               </p>
             </div>
+
+            {fields.length > 0 ? (
+              <div className="space-y-3">
+                {fields.map((field) => {
+                  const value = answers[field.id] ?? "";
+                  const inputId = `field-${field.id}`;
+                  const hintId = `${inputId}-hint`;
+                  return (
+                    <div
+                      key={field.id}
+                      className="space-y-2 rounded-2xl border border-border bg-card p-4 shadow-card"
+                    >
+                      <label htmlFor={inputId} className="block text-base font-medium">
+                        {field.label}
+                        <span className="ml-2 text-sm font-normal text-muted-foreground">
+                          {field.isRequired ? "(required)" : "(optional)"}
+                        </span>
+                      </label>
+                      {field.inputType === "long" ? (
+                        <Textarea
+                          id={inputId}
+                          value={value}
+                          rows={4}
+                          maxLength={field.maxLength}
+                          required={field.isRequired}
+                          aria-required={field.isRequired}
+                          aria-describedby={hintId}
+                          onChange={(event) =>
+                            setAnswers((prev) => ({ ...prev, [field.id]: event.target.value }))
+                          }
+                        />
+                      ) : (
+                        <Input
+                          id={inputId}
+                          value={value}
+                          maxLength={field.maxLength}
+                          required={field.isRequired}
+                          aria-required={field.isRequired}
+                          aria-describedby={hintId}
+                          autoComplete="off"
+                          onChange={(event) =>
+                            setAnswers((prev) => ({ ...prev, [field.id]: event.target.value }))
+                          }
+                        />
+                      )}
+                      {field.inputType === "long" ? (
+                        <p id={hintId} className="text-xs text-muted-foreground tabular-nums">
+                          {value.length} / {field.maxLength}
+                        </p>
+                      ) : (
+                        <span id={hintId} className="sr-only">
+                          Up to {field.maxLength} characters
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
 
             <div className="space-y-3">
               {attributes.map((attr) => (
@@ -460,18 +556,6 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
               ))}
             </div>
 
-            <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="visit-note">
-              Anything else? (optional)
-              <Textarea
-                id="visit-note"
-                value={comment}
-                onChange={(event) => setComment(event.target.value)}
-                rows={4}
-                maxLength={2000}
-                placeholder="What stood out?"
-              />
-            </label>
-
             {errorMessage ? (
               <p className="text-sm text-danger" role="alert">
                 {errorMessage}
@@ -484,10 +568,10 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md">
         <div className="mx-auto flex max-w-lg flex-col gap-2">
           <p ref={draftStatusRef} tabIndex={-1} className="text-sm text-muted-foreground outline-none" aria-live="polite">
-            {statusMessage}
+            {statusMessage ?? readyHint}
           </p>
           {step === "rate" ? (
-            <Button type="button" size="lg" disabled={!allRated || pending} onClick={onSubmitFeedback}>
+            <Button type="button" size="lg" disabled={!canSubmit || pending} onClick={onSubmitFeedback}>
               {primaryLabel}
             </Button>
           ) : (

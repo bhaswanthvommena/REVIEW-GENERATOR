@@ -33,6 +33,12 @@ export async function POST(request: Request, context: RouteContext) {
       tokenBusinessId: resolved.businessId,
       tokenQrCodeId: resolved.qrCodeId,
       requiredAttributeIds: resolved.attributes.map((a) => a.id),
+      fields: resolved.fields.map((field) => ({
+        id: field.id,
+        label: field.label,
+        isRequired: field.isRequired,
+        maxLength: field.maxLength,
+      })),
       input,
     });
 
@@ -43,7 +49,7 @@ export async function POST(request: Request, context: RouteContext) {
       eventType: "feedback_completed",
       props: {
         ratingCount: input.ratings.length,
-        hasComment: Boolean(input.comment),
+        answerCount: input.answers.filter((a) => a.value.trim() !== "").length,
       },
     });
 

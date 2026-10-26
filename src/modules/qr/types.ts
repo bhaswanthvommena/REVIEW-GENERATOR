@@ -18,4 +18,12 @@ export type PublicQrResolve = {
     label: string;
     displayOrder: number;
   }>;
+  fields: Array<{
+    id: string;
+    label: string;
+    inputType: "short" | "long";
+    isRequired: boolean;
+    displayOrder: number;
+    maxLength: number;
+  }>;
 };

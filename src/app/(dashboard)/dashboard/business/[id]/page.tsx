@@ -6,9 +6,11 @@ import { createClient } from "@/lib/supabase/server";
 import { listAttributesForBusiness } from "@/modules/attributes";
 import { requireUser } from "@/modules/auth";
 import { getBusinessForOwner } from "@/modules/businesses";
+import { listFieldsForBusiness } from "@/modules/fields";
 import { listQrCodesForBusiness } from "@/modules/qr";
 import { BusinessForm } from "../business-form";
 import { AttributesManager } from "./attributes-manager";
+import { FieldsManager } from "./fields-manager";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -20,8 +22,9 @@ export default async function BusinessDetailPage({ params }: PageProps) {
   if (!business) {
     notFound();
   }
-  const [attributes, qrCodes] = await Promise.all([
+  const [attributes, fields, qrCodes] = await Promise.all([
     listAttributesForBusiness(supabase, id),
+    listFieldsForBusiness(supabase, id),
     listQrCodesForBusiness(supabase, id),
   ]);
   const hasQr = qrCodes.some((qr) => qr.is_active);
@@ -51,6 +54,7 @@ export default async function BusinessDetailPage({ params }: PageProps) {
           googleReviewUrl: business.google_review_url,
         }}
       />
+      <FieldsManager businessId={business.id} initial={fields} />
       <AttributesManager businessId={business.id} initial={attributes} />
     </div>
   );

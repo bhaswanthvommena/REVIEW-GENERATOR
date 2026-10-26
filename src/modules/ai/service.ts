@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+﻿import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateReviewDraft, type GenerateDraftResult } from "./generate";
 
 export type ReviewDraftRow = {
@@ -25,7 +25,9 @@ export async function loadSessionContextForDraft(
     comment: string | null;
   };
   businessName: string;
+  businessCategory: string | null;
   ratings: Array<{ label: string; rating: number }>;
+  fields: Array<{ label: string; value: string }>;
 }> {
   const { data: session, error: sessionError } = await service
     .from("feedback_sessions")
@@ -45,7 +47,7 @@ export async function loadSessionContextForDraft(
 
   const { data: business, error: businessError } = await service
     .from("businesses")
-    .select("name")
+    .select("name, category")
     .eq("id", session.business_id)
     .single();
 
@@ -76,6 +78,15 @@ export async function loadSessionContextForDraft(
     };
   });
 
+  const { data: answerRows, error: answersError } = await service
+    .from("feedback_field_answers")
+    .select("label, value")
+    .eq("session_id", sessionId);
+
+  if (answersError) {
+    throw new Error(answersError.message);
+  }
+
   return {
     session: session as {
       id: string;
@@ -85,7 +96,12 @@ export async function loadSessionContextForDraft(
       comment: string | null;
     },
     businessName: business.name as string,
+    businessCategory: (business.category as string | null) ?? null,
     ratings,
+    fields: (answerRows ?? []).map((row) => ({
+      label: row.label as string,
+      value: row.value as string,
+    })),
   };
 }
 
@@ -130,10 +146,25 @@ export async function createDraftForSession(
   options?: { regenerate?: boolean },
 ): Promise<{ draft: ReviewDraftRow; generated: GenerateDraftResult }> {
   const ctx = await loadSessionContextForDraft(service, sessionId);
+  let previousDraft: string | null = null;
+  if (options?.regenerate) {
+    const { data: latest } = await service
+      .from("review_drafts")
+      .select("draft_text")
+      .eq("feedback_session_id", sessionId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    previousDraft = (latest?.draft_text as string | undefined) ?? null;
+  }
+
   const generated = await generateReviewDraft({
     businessName: ctx.businessName,
+    businessCategory: ctx.businessCategory,
     ratings: ctx.ratings,
+    fields: ctx.fields,
     comment: ctx.session.comment,
+    previousDraft,
   });
 
   const draft = await persistReviewDraft(service, {
@@ -142,8 +173,6 @@ export async function createDraftForSession(
     result: generated,
   });
 
-  // regenerate flag currently only documents intent; each call inserts a new draft row
-  void options?.regenerate;
-
   return { draft, generated };
 }
+

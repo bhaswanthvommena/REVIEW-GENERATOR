@@ -35,6 +35,7 @@ export async function GET(request: Request, context: RouteContext) {
       qrCodeId: resolved.qrCodeId,
       googleReviewUrl: resolved.googleReviewUrl,
       attributes: resolved.attributes,
+      fields: resolved.fields,
       // Product lock: Google path is never gated by ratings.
       googleCtaPolicy: "always_available_no_rating_gate",
     });
