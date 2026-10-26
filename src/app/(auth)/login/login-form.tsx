@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { TabPanel, Tabs } from "@/components/ui/tabs";
 import { createClient } from "@/lib/supabase/browser";
 import { safeInternalPath } from "@/lib/url";
+import { fullNameSchema, phoneSchema } from "@/modules/profile";
 
 type Mode = "magic" | "signin" | "signup";
 
@@ -35,10 +36,19 @@ export function LoginForm({
   const router = useRouter();
   const destination = safeInternalPath(nextPath);
   const [mode, setMode] = useState<Mode>(isMode(initialMode) ? initialMode : "signup");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const [fieldErrors, setFieldErrors] = useState<{
+    fullName?: string;
+    phone?: string;
+    email?: string;
+    password?: string;
+    confirmPassword?: string;
+  }>({});
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(
     authError ? "That sign-in link did not work. Request a new one and try again." : null,
@@ -55,15 +65,30 @@ export function LoginForm({
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
-    const nextErrors: { email?: string; password?: string } = {};
+    const nextErrors: {
+      fullName?: string;
+      phone?: string;
+      email?: string;
+      password?: string;
+      confirmPassword?: string;
+    } = {};
+    if (mode === "signup") {
+      const name = fullNameSchema.safeParse(fullName);
+      if (!name.success) nextErrors.fullName = name.error.issues[0]?.message;
+      const parsedPhone = phoneSchema.safeParse(phone);
+      if (!parsedPhone.success) nextErrors.phone = parsedPhone.error.issues[0]?.message;
+    }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       nextErrors.email = "Enter a valid email.";
     }
     if (mode !== "magic" && password.length < 8) {
       nextErrors.password = "Use at least 8 characters.";
     }
+    if (mode === "signup" && confirmPassword !== password) {
+      nextErrors.confirmPassword = "Passwords do not match.";
+    }
     setFieldErrors(nextErrors);
-    if (nextErrors.email || nextErrors.password) return;
+    if (Object.keys(nextErrors).length > 0) return;
 
     setPending(true);
     setMessage(null);
@@ -87,7 +112,13 @@ export function LoginForm({
         const { data, error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: redirectTo },
+          options: {
+            emailRedirectTo: redirectTo,
+            data: {
+              full_name: fullName.trim(),
+              phone: phone.trim(),
+            },
+          },
         });
         if (signUpError) throw signUpError;
         if (data.session) {
@@ -118,6 +149,32 @@ export function LoginForm({
       <Tabs tabs={tabs} value={mode} onChange={selectMode} label="Account mode" />
       <TabPanel id={mode} active>
         <div className="flex flex-col gap-4 pt-5">
+          {mode === "signup" ? (
+            <>
+              <Field label="Name" htmlFor="full-name" required error={fieldErrors.fullName}>
+                <Input
+                  id="full-name"
+                  autoComplete="name"
+                  maxLength={80}
+                  value={fullName}
+                  aria-invalid={fieldErrors.fullName ? true : undefined}
+                  onChange={(event) => setFullName(event.target.value)}
+                />
+              </Field>
+              <Field label="Phone number" htmlFor="phone" required error={fieldErrors.phone}>
+                <Input
+                  id="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  inputMode="tel"
+                  maxLength={20}
+                  value={phone}
+                  aria-invalid={fieldErrors.phone ? true : undefined}
+                  onChange={(event) => setPhone(event.target.value)}
+                />
+              </Field>
+            </>
+          ) : null}
           <Field
             label="Email"
             htmlFor="email"
@@ -165,6 +222,24 @@ export function LoginForm({
               </div>
             </Field>
           )}
+
+          {mode === "signup" ? (
+            <Field
+              label="Confirm password"
+              htmlFor="confirm-password"
+              required
+              error={fieldErrors.confirmPassword}
+            >
+              <Input
+                id="confirm-password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                value={confirmPassword}
+                aria-invalid={fieldErrors.confirmPassword ? true : undefined}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+              />
+            </Field>
+          ) : null}
 
           <Button type="submit" size="lg" loading={pending}>
             {mode === "signup"
