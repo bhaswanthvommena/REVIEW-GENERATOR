@@ -375,8 +375,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         : "Copy review";
 
   return (
-    <>
-      <div className="space-y-8 pb-44">
+    <div className="space-y-8">
         <div className="flex items-center gap-3">
           <span className="flex size-11 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-800 dark:bg-brand-950 dark:text-brand-100">
             {initial}
@@ -543,10 +542,8 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
             ) : null}
           </section>
         )}
-      </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md">
-        <div className="mx-auto flex max-w-lg md:max-w-xl flex-col gap-2">
+        <div className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4 shadow-card">
           <p ref={draftStatusRef} tabIndex={-1} className="text-sm text-muted-foreground outline-none" aria-live="polite">
             {statusMessage ?? readyHint}
           </p>
@@ -575,6 +572,5 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
           </a>
         </div>
       </div>
-    </>
   );
 }
