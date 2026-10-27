@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/cn";
 import { toUserMessage, UserFacingError } from "@/lib/api/client";
+import { DRAFT_LIMIT_MESSAGE, MAX_DRAFTS_PER_SESSION } from "@/modules/ai/limits";
 
 type Attribute = { id: string; label: string; displayOrder: number };
 
@@ -111,6 +112,8 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [draftText, setDraftText] = useState("");
   const [draftWarnings, setDraftWarnings] = useState<string[]>([]);
+  const [savedDrafts, setSavedDrafts] = useState(0);
+  const atDraftLimit = savedDrafts >= MAX_DRAFTS_PER_SESSION;
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
   const [pending, startTransition] = useTransition();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -246,11 +249,15 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
       const body = (await response.json()) as {
         draft?: { text: string; warnings?: string[] };
         googleReviewUrl?: string;
-        error?: { message: string };
+        error?: { code?: string; message: string };
       };
       if (!response.ok) {
+        if (body.error?.code === "draft_limit") {
+          setSavedDrafts(MAX_DRAFTS_PER_SESSION);
+        }
         throw new UserFacingError(body.error?.message ?? "Could not generate draft.");
       }
+      setSavedDrafts((count) => count + 1);
       setDraftText(body.draft?.text ?? "");
       setDraftWarnings(body.draft?.warnings ?? []);
       if (body.googleReviewUrl) {
@@ -443,9 +450,13 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
                     ))}
                   </ul>
                 ) : null}
-                <Button type="button" variant="outline" size="lg" disabled={pending} onClick={onRegenerate}>
-                  {pending ? "Rewriting…" : "Regenerate"}
-                </Button>
+                {atDraftLimit ? (
+                  <p className="text-sm text-muted-foreground">{DRAFT_LIMIT_MESSAGE}</p>
+                ) : (
+                  <Button type="button" variant="outline" size="lg" disabled={pending} onClick={onRegenerate}>
+                    {pending ? "Rewriting…" : "Regenerate"}
+                  </Button>
+                )}
               </div>
             ) : pending ? (
               <div className="space-y-3" aria-busy="true">
@@ -459,9 +470,11 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
                 <p className="text-sm text-danger" role="alert">
                   {errorMessage}
                 </p>
-                <Button type="button" variant="outline" size="lg" disabled={pending} onClick={onRegenerate}>
-                  Try again
-                </Button>
+                {atDraftLimit ? null : (
+                  <Button type="button" variant="outline" size="lg" disabled={pending} onClick={onRegenerate}>
+                    Try again
+                  </Button>
+                )}
               </div>
             ) : null}
           </section>

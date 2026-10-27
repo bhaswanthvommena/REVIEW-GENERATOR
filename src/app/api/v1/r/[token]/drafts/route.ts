@@ -9,6 +9,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import {
   createDraftForSession,
   DraftCreateSchema,
+  DraftLimitError,
   markSessionDrafted,
   DraftGenerationError,
 } from "@/modules/ai";
@@ -120,6 +121,9 @@ export async function POST(request: Request, context: RouteContext) {
     }
     if (error instanceof ZodError) {
       return apiError(400, "validation_error", "Invalid draft payload", error.issues);
+    }
+    if (error instanceof DraftLimitError) {
+      return apiError(429, "draft_limit", error.message);
     }
     if (error instanceof DraftGenerationError) {
       return apiError(502, "draft_failed", error.message);

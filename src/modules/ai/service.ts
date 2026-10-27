@@ -1,5 +1,6 @@
 ﻿import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateReviewDraft, type GenerateDraftResult } from "./generate";
+import { DRAFT_LIMIT_MESSAGE, MAX_DRAFTS_PER_SESSION } from "./limits";
 
 export type ReviewDraftRow = {
   id: string;
@@ -143,6 +144,27 @@ export async function persistReviewDraft(
   return data as ReviewDraftRow;
 }
 
+export class DraftLimitError extends Error {
+  constructor(message = DRAFT_LIMIT_MESSAGE) {
+    super(message);
+    this.name = "DraftLimitError";
+  }
+}
+
+async function countSavedDrafts(
+  service: SupabaseClient,
+  sessionId: string,
+): Promise<number> {
+  const { count, error } = await service
+    .from("review_drafts")
+    .select("id", { count: "exact", head: true })
+    .eq("feedback_session_id", sessionId);
+  if (error) {
+    throw new Error(error.message);
+  }
+  return count ?? 0;
+}
+
 export async function markSessionDrafted(
   service: SupabaseClient,
   sessionId: string,
@@ -184,6 +206,10 @@ export async function createDraftForSession(
       ctx.session.qr_code_id !== options.expect.qrCodeId)
   ) {
     throw new Error("SESSION_MISMATCH");
+  }
+  const savedDrafts = await countSavedDrafts(service, ctx.session.id);
+  if (savedDrafts >= MAX_DRAFTS_PER_SESSION) {
+    throw new DraftLimitError();
   }
   const t1 = performance.now();
 

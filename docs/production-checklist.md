@@ -15,7 +15,7 @@ Use this before promoting a staging build to production. Check items only after 
 
 - [ ] Supabase RLS enabled on all app tables; owner isolation spot-checked.
 - [ ] Public writes go through Route Handlers + service role after QR token validation.
-- [ ] Upstash rate limits configured in production for draft generation.
+- [x] Upstash rate limits configured in production for draft generation. Free Redis database `ventry` (`us-east-1`); `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` set on Vercel for production, preview, and development. Limits stay 10/10 min per IP, 30/hour per QR token, 200/hour per business.
 - [ ] Secrets only in host env (Vercel/Supabase); none committed.
 - [ ] Security headers / CSP present (see `next.config.ts`).
 - [ ] Errors shown to users are generic ("Something went wrong, please try again."); real errors appear only in server logs.

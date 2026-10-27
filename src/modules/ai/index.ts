@@ -6,6 +6,8 @@
   faithfulnessHeuristic,
   faithfulnessToDetails,
   postValidateDraft,
+  DRAFT_LIMIT_MESSAGE,
+  MAX_DRAFTS_PER_SESSION,
   wordCount,
   type DraftCreateInput,
   type DraftModelOutput,
@@ -20,6 +22,7 @@ export {
 } from "./generate";
 export {
   createDraftForSession,
+  DraftLimitError,
   loadSessionContextForDraft,
   markSessionDrafted,
   persistReviewDraft,

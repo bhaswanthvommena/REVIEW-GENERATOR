@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const PROMPT_VERSION = "review-draft/v2" as const;
 
+export { DRAFT_LIMIT_MESSAGE, MAX_DRAFTS_PER_SESSION } from "./limits";
+
 export const DraftModelOutputSchema = z.object({
   draft_text: z.string().trim().min(1).max(4000),
   warnings: z.array(z.string().trim().min(1).max(200)).max(10).optional(),
