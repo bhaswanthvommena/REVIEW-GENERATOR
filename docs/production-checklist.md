@@ -15,13 +15,17 @@ Use this before promoting a staging build to production. Check items only after 
 
 - [ ] Supabase RLS enabled on all app tables; owner isolation spot-checked.
 - [ ] Public writes go through Route Handlers + service role after QR token validation.
-- [x] Upstash rate limits configured in production for draft generation. Free Redis database `ventry` (`us-east-1`); `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` set on Vercel for production, preview, and development. Limits stay 10/10 min per IP, 30/hour per QR token, 200/hour per business.
+- [x] Upstash rate limits configured in production (fail-closed) for public endpoints + draft generation. Free Redis database `ventry` (`us-east-1`); `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` set on Vercel for production, preview, and development.
+  - Public endpoints throttled: `scan`, `sessions`, `feedback`, `events` (sliding window, per-IP + per-QR-token-hash).
+  - Draft generation throttled: 10/10 min per IP, 30/1 h per QR token hash, 200/1 h per business.
 - [ ] Secrets only in host env (Vercel/Supabase); none committed.
-- [ ] Security headers / CSP present (see `next.config.ts`).
+- [x] Security headers / CSP present (see `next.config.ts`), including `Strict-Transport-Security` (HSTS).
 - [ ] Errors shown to users are generic ("Something went wrong, please try again."); real errors appear only in server logs.
 - [ ] `save_business_setup` migration applied; saving the setup page updates profile, fields, and questions in one request.
 - [ ] `draft_timing` log lines checked on a real draft (retries should be 0 most of the time).
 - [ ] Auth redirect URLs set for local, preview, and production.
+- [x] `/auth/callback` sanitizes `next` to prevent open redirects.
+- [x] Google review URL allowlist is enforced in-app and backed by a Supabase DB constraint on `businesses.google_review_url`.
 
 ## Observability / legal
 

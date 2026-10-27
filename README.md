@@ -12,6 +12,13 @@ AI-assisted review drafts for local businesses: print/share a QR → customer ra
 - Upstash Redis (draft rate limits)
 - Sentry (env-gated) + Vercel
 
+## Security & Hardening (MVP)
+
+- Safe auth redirect: `/auth/callback` sanitizes the `next` parameter to prevent open redirects.
+- Upstash rate limiting on public endpoints (fail-closed in production): `scan`, `sessions`, `feedback`, and `events` are all throttled per IP and per QR token hash.
+- Defense-in-depth for Google review URLs: allowlist enforcement is done in-app and backed by a Supabase DB constraint on `businesses.google_review_url`.
+- Strict transport security: HSTS is enabled via `Strict-Transport-Security`.
+
 ## Local setup
 
 ### Requirements
@@ -47,7 +54,7 @@ AI-assisted review drafts for local businesses: print/share a QR → customer ra
    | `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public client |
    | `SUPABASE_SERVICE_ROLE_KEY` | Server only |
    | `GEMINI_API_KEY` / `GEMINI_MODEL` | Google Gemini — **not** OpenAI |
-   | `UPSTASH_REDIS_REST_*` | Optional locally; required in prod for draft limits |
+    | `UPSTASH_REDIS_REST_*` | Optional locally; required in prod for public endpoint throttling (scan/sessions/feedback/events + draft limits) |
    | `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` | Optional locally; set in prod |
 
 4. Enable Supabase **Email** auth (magic link + password). Redirect: `http://localhost:3000/auth/callback`.
