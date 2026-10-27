@@ -10,7 +10,10 @@ export const PublicAnalyticsEventSchema = z.object({
     "google_continue_clicked",
   ]),
   feedbackSessionId: z.string().uuid().optional(),
-  props: z.record(z.string(), z.unknown()).optional(),
+  props: z
+    .record(z.string().max(40), z.union([z.string().max(200), z.number(), z.boolean(), z.null()]))
+    .refine((value) => Object.keys(value).length <= 10, "Too many props")
+    .optional(),
 });
 
 export type PublicAnalyticsEventInput = z.infer<

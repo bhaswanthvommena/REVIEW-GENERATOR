@@ -1,5 +1,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { createHash } from "node:crypto";
+import { apiError } from "@/lib/api/errors";
 import { getServerEnv } from "@/lib/env";
 
 export type RateLimitResult = {
@@ -97,7 +99,7 @@ export async function enforceDraftRateLimits(input: {
   const { ip, token, business } = getLimiters();
   const results = await Promise.all([
     checkOne(ip ?? null, input.ip),
-    checkOne(token ?? null, input.token),
+    checkOne(token ?? null, hashKey(input.token)),
     checkOne(business ?? null, input.businessId),
   ]);
 
@@ -122,4 +124,55 @@ export function getClientIp(request: Request): string {
     return forwarded.split(",")[0]?.trim() || "unknown";
   }
   return request.headers.get("x-real-ip") ?? "unknown";
+}
+
+/** Never put the raw QR token (a password-equivalent) in Redis keys. */
+function hashKey(value: string): string {
+  return createHash("sha256").update(value).digest("hex").slice(0, 32);
+}
+
+const publicLimiters = new Map<string, Ratelimit | null>();
+
+const PUBLIC_LIMITS = {
+  session: { n: 20, window: "10 m" },
+  feedback: { n: 20, window: "10 m" },
+  event: { n: 60, window: "10 m" },
+  scan: { n: 60, window: "10 m" },
+} as const;
+
+export type PublicScope = keyof typeof PUBLIC_LIMITS;
+
+/** Per-IP and per-token limit for unauthenticated customer endpoints. */
+export async function enforcePublicRateLimit(input: {
+  scope: PublicScope;
+  ip: string;
+  token: string;
+}): Promise<RateLimitResult> {
+  let limiter = publicLimiters.get(input.scope);
+  if (limiter === undefined) {
+    const redis = createRedis();
+    const cfg = PUBLIC_LIMITS[input.scope];
+    limiter = redis
+      ? new Ratelimit({
+          redis,
+          limiter: Ratelimit.slidingWindow(cfg.n, cfg.window),
+          prefix: `rl:public:${input.scope}`,
+        })
+      : null;
+    publicLimiters.set(input.scope, limiter);
+  }
+  const results = await Promise.all([
+    checkOne(limiter, `ip:${input.ip}`),
+    checkOne(limiter, `tok:${hashKey(input.token)}`),
+  ]);
+  return results.find((r) => !r.success) ?? results[0]!;
+}
+
+export function rateLimitedResponse(rate: RateLimitResult) {
+  const retryAfter = Math.max(1, Math.ceil((rate.reset - Date.now()) / 1000));
+  const response = apiError(429, "rate_limited", "Too many requests. Try again shortly.", {
+    retryAfter,
+  });
+  response.headers.set("Retry-After", String(retryAfter));
+  return response;
 }

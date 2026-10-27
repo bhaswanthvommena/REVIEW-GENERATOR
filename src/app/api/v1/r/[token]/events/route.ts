@@ -1,5 +1,10 @@
-﻿import { ZodError } from "zod";
+import { ZodError } from "zod";
 import { apiError, apiOk, internalError } from "@/lib/api/errors";
+import {
+  enforcePublicRateLimit,
+  getClientIp,
+  rateLimitedResponse,
+} from "@/lib/rate-limit";
 import { createServiceClient } from "@/lib/supabase/server";
 import {
   PublicAnalyticsEventSchema,
@@ -21,6 +26,13 @@ export async function POST(request: Request, context: RouteContext) {
     if (!isValidPublicTokenShape(token)) {
       return apiError(404, "not_found", "QR code not found");
     }
+
+    const rate = await enforcePublicRateLimit({
+      scope: "event",
+      ip: getClientIp(request),
+      token,
+    });
+    if (!rate.success) return rateLimitedResponse(rate);
 
     const json: unknown = await request.json();
     const input = PublicAnalyticsEventSchema.parse(json);

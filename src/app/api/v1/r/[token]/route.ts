@@ -1,4 +1,9 @@
-﻿import { apiError, apiOk, internalError } from "@/lib/api/errors";
+import { apiError, apiOk, internalError } from "@/lib/api/errors";
+import {
+  enforcePublicRateLimit,
+  getClientIp,
+  rateLimitedResponse,
+} from "@/lib/rate-limit";
 import { createServiceClient } from "@/lib/supabase/server";
 import { recordAnalyticsEvent } from "@/modules/analytics";
 import {
@@ -16,6 +21,13 @@ export async function GET(request: Request, context: RouteContext) {
     if (!isValidPublicTokenShape(token)) {
       return apiError(404, "not_found", "QR code not found");
     }
+
+    const rate = await enforcePublicRateLimit({
+      scope: "scan",
+      ip: getClientIp(request),
+      token,
+    });
+    if (!rate.success) return rateLimitedResponse(rate);
 
     const service = createServiceClient();
     const resolved = await resolveActiveQrByToken(service, token);

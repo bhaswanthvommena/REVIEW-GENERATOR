@@ -1,4 +1,9 @@
-﻿import { apiError, apiOk, internalError } from "@/lib/api/errors";
+import { apiError, apiOk, internalError } from "@/lib/api/errors";
+import {
+  enforcePublicRateLimit,
+  getClientIp,
+  rateLimitedResponse,
+} from "@/lib/rate-limit";
 import { createServiceClient } from "@/lib/supabase/server";
 import { recordAnalyticsEvent } from "@/modules/analytics";
 import { createFeedbackSession } from "@/modules/feedback";
@@ -18,6 +23,13 @@ export async function POST(request: Request, context: RouteContext) {
       return apiError(404, "not_found", "QR code not found");
     }
 
+    const rate = await enforcePublicRateLimit({
+      scope: "session",
+      ip: getClientIp(request),
+      token,
+    });
+    if (!rate.success) return rateLimitedResponse(rate);
+
     const service = createServiceClient();
     const resolved = await resolveActiveQrByToken(service, token);
 
@@ -25,7 +37,10 @@ export async function POST(request: Request, context: RouteContext) {
     try {
       const json = (await request.json()) as { clientMeta?: Record<string, unknown> };
       if (json.clientMeta && typeof json.clientMeta === "object") {
-        clientMeta = json.clientMeta;
+        // Bounded: this is unauthenticated input stored as-is.
+        if (JSON.stringify(json.clientMeta).length <= 1000) {
+          clientMeta = json.clientMeta;
+        }
       }
     } catch {
       // empty body ok

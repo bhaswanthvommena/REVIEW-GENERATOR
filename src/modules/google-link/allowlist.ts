@@ -1,6 +1,6 @@
 /**
  * Allowlist for owner-pasted Google review / Maps URLs.
- * Official Business Profile "Get more reviews" links only — no javascript/data.
+ * Official Business Profile "Get more reviews" links only ? no javascript/data.
  */
 
 const ALLOWED_HOSTS = new Set([
@@ -13,6 +13,16 @@ const ALLOWED_HOSTS = new Set([
   "www.maps.google.com",
   "search.google.com",
 ]);
+
+/** Hosts that serve more than review/maps pages must match one of these paths. */
+const PATH_PREFIXES: Record<string, string[]> = {
+  "www.google.com": ["/maps", "/local"],
+  "google.com": ["/maps", "/local"],
+  "maps.google.com": ["/maps", "/"],
+  "www.maps.google.com": ["/maps", "/"],
+  "search.google.com": ["/local"],
+  "goo.gl": ["/maps"],
+};
 
 export function isAllowedGoogleReviewUrl(raw: string): boolean {
   let url: URL;
@@ -33,6 +43,13 @@ export function isAllowedGoogleReviewUrl(raw: string): boolean {
 
   // Reject credentialed URLs and obvious non-review schemes already covered.
   if (url.username || url.password) {
+    return false;
+  }
+
+  // Block open-redirect style paths on Google hosts (e.g. google.com/url?q=...).
+  const path = url.pathname.toLowerCase();
+  const prefixes = PATH_PREFIXES[host];
+  if (prefixes && !prefixes.some((p) => path.startsWith(p))) {
     return false;
   }
 
