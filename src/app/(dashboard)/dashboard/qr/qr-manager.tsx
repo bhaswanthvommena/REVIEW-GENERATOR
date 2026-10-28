@@ -78,17 +78,15 @@ export function QrManager({
       {qr ? (
         <Card>
           <CardContent className="grid gap-4 md:grid-cols-[14rem_minmax(0,1fr)] md:items-start">
-            <div className="mx-auto w-full max-w-xs rounded-2xl border border-border bg-white p-5 text-center text-zinc-900 shadow-sm md:mx-0">
-              <p className="text-sm font-semibold">{businessName}</p>
+            <div className="mx-auto w-full max-w-[280px] overflow-hidden rounded-2xl shadow-sm md:mx-0">
               <Image
                 src={`/api/v1/qr-codes/${qr.id}/download?businessId=${businessId}&format=png`}
-                alt={`QR code for ${businessName}`}
-                width={180}
-                height={180}
+                alt={`Printable review QR for ${businessName}`}
+                width={800}
+                height={1020}
                 unoptimized
-                className="mx-auto mt-3 size-44 rounded-lg bg-white"
+                className="h-auto w-full bg-white"
               />
-              <p className="mt-3 text-xs font-medium tracking-wide uppercase">Scan to review</p>
             </div>
             <div className="flex flex-col gap-2">
               <p className="break-all font-mono text-xs text-muted-foreground">{qr.publicUrl}</p>
@@ -112,6 +110,13 @@ export function QrManager({
                 >
                   <Download className="size-4" aria-hidden="true" />
                   Download PNG
+                </a>
+                <a
+                  className="inline-flex min-h-11 items-center gap-1 font-medium underline-offset-4 hover:underline"
+                  href={`/api/v1/qr-codes/${qr.id}/download?businessId=${businessId}&format=pdf`}
+                >
+                  <Download className="size-4" aria-hidden="true" />
+                  Download PDF
                 </a>
                 <a
                   className="inline-flex min-h-11 items-center font-medium underline-offset-4 hover:underline"

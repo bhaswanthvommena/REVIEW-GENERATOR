@@ -7,6 +7,7 @@ import {
   buildPublicFeedbackUrl,
   getQrCodeForOwner,
   QrFormatSchema,
+  qrDownloadFilename,
   renderQr,
 } from "@/modules/qr";
 
@@ -32,8 +33,8 @@ export async function GET(request: Request, context: RouteContext) {
     }
 
     const publicUrl = buildPublicFeedbackUrl(qr.public_token);
-    const rendered = await renderQr(publicUrl, format);
-    const filename = `qr-${qr.label ? qr.label.replace(/\s+/g, "-").toLowerCase() : qr.id.slice(0, 8)}.${format}`;
+    const rendered = await renderQr(publicUrl, format, business.name);
+    const filename = qrDownloadFilename(business.name, format);
 
     return new Response(rendered.body, {
       status: 200,

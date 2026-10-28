@@ -5,7 +5,14 @@ export {
   generatePublicToken,
   isValidPublicTokenShape,
 } from "./token";
-export { renderQr, renderQrPngDataUrl, renderQrSvg, type QrFormat } from "./render";
+export {
+  renderQr,
+  renderQrCardSvg,
+  renderQrPngDataUrl,
+  renderQrSvg,
+  qrDownloadFilename,
+  type QrFormat,
+} from "./render";
 export {
   createQrCode,
   deactivateQrCode,

@@ -34,7 +34,7 @@ export default async function QrPage() {
     <div className="space-y-6">
       <PageHeader
         title="QR code"
-        description={`For ${business.name}. One code per business. Download the PNG for a sharper print.`}
+        description={`For ${business.name}. The PDF is ready to print, and the business name is on the card so two codes are easy to tell apart.`}
       />
       <QrManager
         businessId={business.id}
