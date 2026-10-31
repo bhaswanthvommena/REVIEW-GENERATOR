@@ -1,4 +1,4 @@
-﻿import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateReviewDraft, type GenerateDraftResult } from "./generate";
 import { DRAFT_LIMIT_MESSAGE, MAX_DRAFTS_PER_SESSION } from "./limits";
 
@@ -115,7 +115,18 @@ export async function loadSessionContextForDraft(
   };
 }
 
-/** Insert the draft row. The session status is updated separately. */
+export class DraftLimitError extends Error {
+  constructor(message = DRAFT_LIMIT_MESSAGE) {
+    super(message);
+    this.name = "DraftLimitError";
+  }
+}
+
+/**
+ * Insert the draft row atomically, enforcing the per-session cap inside Postgres.
+ * The DB function locks the session row first, then checks the count, then inserts —
+ * eliminating the check-then-insert race condition.
+ */
 export async function persistReviewDraft(
   service: SupabaseClient,
   input: {
@@ -124,45 +135,35 @@ export async function persistReviewDraft(
     result: GenerateDraftResult;
   },
 ): Promise<ReviewDraftRow> {
-  const { data, error } = await service
+  const { data: newId, error } = await service.rpc("insert_review_draft_capped", {
+    p_session_id: input.feedbackSessionId,
+    p_business_id: input.businessId,
+    p_draft_text: input.result.draftText,
+    p_model: input.result.model,
+    p_prompt_version: input.result.promptVersion,
+    p_usage: input.result.usage,
+    p_validation: input.result.validation,
+    p_max_drafts: MAX_DRAFTS_PER_SESSION,
+  });
+
+  if (error) {
+    if (error.message.includes("DRAFT_LIMIT_EXCEEDED")) {
+      throw new DraftLimitError();
+    }
+    throw new Error(error.message);
+  }
+
+  // The RPC returns just the new UUID; fetch the full row for the caller.
+  const { data: row, error: fetchError } = await service
     .from("review_drafts")
-    .insert({
-      feedback_session_id: input.feedbackSessionId,
-      business_id: input.businessId,
-      draft_text: input.result.draftText,
-      model: input.result.model,
-      prompt_version: input.result.promptVersion,
-      usage: input.result.usage,
-      validation: input.result.validation,
-    })
     .select("*")
+    .eq("id", newId as string)
     .single();
 
-  if (error) {
-    throw new Error(error.message);
+  if (fetchError || !row) {
+    throw new Error(fetchError?.message ?? "Draft row not found after insert");
   }
-  return data as ReviewDraftRow;
-}
-
-export class DraftLimitError extends Error {
-  constructor(message = DRAFT_LIMIT_MESSAGE) {
-    super(message);
-    this.name = "DraftLimitError";
-  }
-}
-
-async function countSavedDrafts(
-  service: SupabaseClient,
-  sessionId: string,
-): Promise<number> {
-  const { count, error } = await service
-    .from("review_drafts")
-    .select("id", { count: "exact", head: true })
-    .eq("feedback_session_id", sessionId);
-  if (error) {
-    throw new Error(error.message);
-  }
-  return count ?? 0;
+  return row as ReviewDraftRow;
 }
 
 export async function markSessionDrafted(
@@ -207,10 +208,6 @@ export async function createDraftForSession(
   ) {
     throw new Error("SESSION_MISMATCH");
   }
-  const savedDrafts = await countSavedDrafts(service, ctx.session.id);
-  if (savedDrafts >= MAX_DRAFTS_PER_SESSION) {
-    throw new DraftLimitError();
-  }
   const t1 = performance.now();
 
   const generated = await generateReviewDraft({
@@ -224,6 +221,7 @@ export async function createDraftForSession(
   });
   const t2 = performance.now();
 
+  // persistReviewDraft now handles the cap check atomically in Postgres.
   const draft = await persistReviewDraft(service, {
     feedbackSessionId: ctx.session.id,
     businessId: ctx.session.business_id,
