@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -125,7 +125,9 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
 
     async function boot() {
       try {
-        const resolveRes = await fetch(`/api/v1/r/${encodeURIComponent(token)}`);
+        const resolveRes = await fetch(`/api/v1/r/${encodeURIComponent(token)}`, {
+          signal: AbortSignal.timeout(15_000),
+        });
         const resolveBody = (await resolveRes.json()) as ResolvePayload & {
           error?: { code: string; message: string };
         };
@@ -152,6 +154,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         const sessionRes = await fetch(`/api/v1/r/${encodeURIComponent(token)}/sessions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(15_000),
           body: JSON.stringify({
             clientMeta: { locale: navigator.language },
           }),
@@ -241,6 +244,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
       const response = await fetch(`/api/v1/r/${encodeURIComponent(token)}/drafts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(20_000),
         body: JSON.stringify({
           feedbackSessionId: currentSessionId,
           regenerate,
@@ -281,6 +285,7 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
         const response = await fetch(`/api/v1/r/${encodeURIComponent(token)}/feedback`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(15_000),
           body: JSON.stringify({
             sessionId: currentSessionId,
             answers: fields
@@ -329,8 +334,13 @@ export function PublicFeedbackFlow({ token }: { token: string }) {
       await emitEvent("draft_copied", { length: draftText.length });
       window.setTimeout(() => setCopyState("idle"), 2000);
     } catch {
+      const textarea = document.getElementById("draft-text") as HTMLTextAreaElement | null;
+      if (textarea) {
+        textarea.focus();
+        textarea.select();
+      }
       setCopyState("failed");
-      setStatusMessage("Could not copy automatically. Select the text and copy.");
+      setStatusMessage("Could not copy automatically. The review text is selected — press copy or copy manually.");
     }
   }
 
