@@ -28,9 +28,31 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      // If the refresh token is missing, expired, or invalid, clear all Supabase auth cookies
+      // to prevent continuous failed refresh cycles on every subsequent request.
+      const isRefreshTokenError =
+        error.message?.includes("Refresh Token Not Found") ||
+        error.message?.includes("refresh_token_not_found") ||
+        (error as unknown as { code?: string }).code === "refresh_token_not_found" ||
+        (error as unknown as { status?: number }).status === 400;
+
+      if (isRefreshTokenError) {
+        for (const cookie of request.cookies.getAll()) {
+          if (cookie.name.startsWith("sb-")) {
+            supabaseResponse.cookies.delete(cookie.name);
+          }
+        }
+      }
+    } else {
+      user = data.user;
+    }
+  } catch {
+    user = null;
+  }
 
   const path = request.nextUrl.pathname;
   const isDashboard = path.startsWith("/dashboard");
@@ -40,13 +62,22 @@ export async function updateSession(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("next", path);
-    return NextResponse.redirect(redirectUrl);
+    const redirectResponse = NextResponse.redirect(redirectUrl);
+    // Propagate cookie changes (e.g. cleared invalid session cookies) to redirect
+    for (const cookie of supabaseResponse.cookies.getAll()) {
+      redirectResponse.cookies.set(cookie);
+    }
+    return redirectResponse;
   }
 
   if (isLogin && user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";
-    return NextResponse.redirect(redirectUrl);
+    const redirectResponse = NextResponse.redirect(redirectUrl);
+    for (const cookie of supabaseResponse.cookies.getAll()) {
+      redirectResponse.cookies.set(cookie);
+    }
+    return redirectResponse;
   }
 
   return supabaseResponse;

@@ -8,16 +8,20 @@ export type AuthUser = {
 export async function getSessionUser(
   supabase: SupabaseClient,
 ): Promise<AuthUser | null> {
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  try {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
-  if (error || !user) {
+    if (error || !user) {
+      return null;
+    }
+
+    return { id: user.id, email: user.email };
+  } catch {
     return null;
   }
-
-  return { id: user.id, email: user.email };
 }
 
 export async function requireUser(

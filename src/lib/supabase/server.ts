@@ -1,14 +1,21 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import {
   requireSupabasePublicEnv,
   requireSupabaseServiceEnv,
 } from "@/lib/env";
 
 export async function createClient() {
-  // Suspend prerender before reading env. A missing public key must not fail
-  // `next build`; the session cookie is only available on a real request.
+  // Opt in to dynamic request-time rendering so Supabase auth timestamp checks
+  // (Date.now()) do not trigger Next.js prerendering warnings.
+  try {
+    await connection();
+  } catch {
+    // Outside a Next.js request scope (e.g. tests or build analysis), connection() may throw; ignore.
+  }
+
   const cookieStore = await cookies();
   const { url, anonKey } = requireSupabasePublicEnv();
 
