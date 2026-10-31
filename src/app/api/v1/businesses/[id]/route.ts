@@ -1,4 +1,9 @@
-﻿import { ZodError } from "zod";
+import { ZodError } from "zod";
+import {
+  parseJsonBody,
+  PayloadTooLargeError,
+  UnsupportedMediaTypeError,
+} from "@/lib/api/body";
 import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
@@ -37,11 +42,17 @@ export async function PATCH(request: Request, context: RouteContext) {
     if (!existing) {
       return apiError(404, "not_found", "Business not found");
     }
-    const json: unknown = await request.json();
+    const json: unknown = await parseJsonBody(request);
     const input = BusinessUpdateSchema.parse(json);
     const business = await updateBusiness(supabase, id, user.id, input);
     return apiOk({ business });
   } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return apiError(413, "payload_too_large", error.message);
+    }
+    if (error instanceof UnsupportedMediaTypeError) {
+      return apiError(415, "unsupported_media_type", error.message);
+    }
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return apiError(401, "unauthorized", "Sign in required");
     }
