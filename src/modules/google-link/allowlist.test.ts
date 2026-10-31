@@ -21,6 +21,10 @@ describe("isAllowedGoogleReviewUrl", () => {
     ).toBe(true);
   });
 
+  it("rejects deprecated goo.gl shortener links", () => {
+    expect(isAllowedGoogleReviewUrl("https://goo.gl/maps/abcdef")).toBe(false);
+  });
+
   it("rejects redirect paths on Google hosts", () => {
     expect(isAllowedGoogleReviewUrl("https://www.google.com/url?q=https://evil.example")).toBe(false);
     expect(isAllowedGoogleReviewUrl("https://google.com/amp/evil")).toBe(false);

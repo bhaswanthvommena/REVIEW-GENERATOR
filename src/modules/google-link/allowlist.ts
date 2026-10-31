@@ -1,12 +1,11 @@
 /**
  * Allowlist for owner-pasted Google review / Maps URLs.
- * Official Business Profile "Get more reviews" links only ? no javascript/data.
+ * Official Business Profile "Get more reviews" links only — no javascript/data.
  */
 
 const ALLOWED_HOSTS = new Set([
   "g.page",
   "maps.app.goo.gl",
-  "goo.gl",
   "www.google.com",
   "google.com",
   "maps.google.com",
@@ -21,7 +20,6 @@ const PATH_PREFIXES: Record<string, string[]> = {
   "maps.google.com": ["/maps", "/"],
   "www.maps.google.com": ["/maps", "/"],
   "search.google.com": ["/local"],
-  "goo.gl": ["/maps"],
 };
 
 export function isAllowedGoogleReviewUrl(raw: string): boolean {
