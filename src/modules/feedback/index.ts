@@ -1,5 +1,7 @@
 export {
   FeedbackSubmitSchema,
+  FeedbackValidationError,
+  cleanAnswerText,
   assertCompleteAttributeRatings,
   assertFieldAnswers,
   type AnswerFieldRule,

@@ -2,6 +2,19 @@ import { z } from "zod";
 
 const ratingValue = z.number().int().min(1).max(5);
 
+export class FeedbackValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FeedbackValidationError";
+  }
+}
+
+export function cleanAnswerText(value: string): string {
+  return value
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .trim();
+}
+
 export const FeedbackSubmitSchema = z.object({
   sessionId: z.string().uuid(),
   comment: z
@@ -19,7 +32,10 @@ export const FeedbackSubmitSchema = z.object({
     .array(
       z.object({
         fieldId: z.string().uuid(),
-        value: z.string().max(2000),
+        value: z
+          .string()
+          .max(2000)
+          .transform((v) => cleanAnswerText(v)),
       }),
     )
     .max(50)
@@ -50,12 +66,6 @@ export type CleanFieldAnswer = {
   value: string;
 };
 
-function cleanAnswerText(value: string): string {
-  return value
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
-    .trim();
-}
-
 /**
  * Check customer answers against the business's active fields. Blank answers
  * to optional fields are dropped. Returns only non-empty, cleaned answers.
@@ -70,14 +80,14 @@ export function assertFieldAnswers(
   for (const answer of answers) {
     const field = byId.get(answer.fieldId);
     if (!field) {
-      throw new Error("Unexpected field in answers payload");
+      throw new FeedbackValidationError("Unexpected field in answers payload");
     }
     if (values.has(answer.fieldId)) {
-      throw new Error("Duplicate answer for a field");
+      throw new FeedbackValidationError("Duplicate answer for a field");
     }
     const value = cleanAnswerText(answer.value);
     if (value.length > field.maxLength) {
-      throw new Error(`"${field.label}" is too long`);
+      throw new FeedbackValidationError(`"${field.label}" is too long`);
     }
     values.set(answer.fieldId, value);
   }
@@ -87,7 +97,7 @@ export function assertFieldAnswers(
     const value = values.get(field.id) ?? "";
     if (value === "") {
       if (field.isRequired) {
-        throw new Error(`"${field.label}" is required`);
+        throw new FeedbackValidationError(`"${field.label}" is required`);
       }
       continue;
     }
@@ -104,20 +114,20 @@ export function assertCompleteAttributeRatings(
   const seen = new Map<string, number>();
   for (const row of ratings) {
     if (seen.has(row.attributeId)) {
-      throw new Error("Duplicate rating for an attribute");
+      throw new FeedbackValidationError("Duplicate rating for an attribute");
     }
     seen.set(row.attributeId, row.rating);
   }
 
   for (const id of requiredAttributeIds) {
     if (!seen.has(id)) {
-      throw new Error("Every attribute must be rated from 1 to 5");
+      throw new FeedbackValidationError("Every attribute must be rated from 1 to 5");
     }
   }
 
   for (const id of seen.keys()) {
     if (!requiredAttributeIds.includes(id)) {
-      throw new Error("Unexpected attribute in ratings payload");
+      throw new FeedbackValidationError("Unexpected attribute in ratings payload");
     }
   }
 }
