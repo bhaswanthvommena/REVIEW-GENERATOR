@@ -1,4 +1,5 @@
 import { ZodError } from "zod";
+import { parseJsonBody, PayloadTooLargeError, UnsupportedMediaTypeError } from "@/lib/api/body";
 import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import {
   enforcePublicRateLimit,
@@ -34,7 +35,7 @@ export async function POST(request: Request, context: RouteContext) {
     });
     if (!rate.success) return rateLimitedResponse(rate);
 
-    const json: unknown = await request.json();
+    const json: unknown = await parseJsonBody(request);
     const input = PublicAnalyticsEventSchema.parse(json);
 
     // Phase 5 public path focuses on copy + Google continue.
@@ -78,6 +79,12 @@ export async function POST(request: Request, context: RouteContext) {
 
     return apiOk({ ok: true }, 201);
   } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return apiError(413, "payload_too_large", error.message);
+    }
+    if (error instanceof UnsupportedMediaTypeError) {
+      return apiError(415, "unsupported_media_type", error.message);
+    }
     if (error instanceof QrNotFoundError) {
       return apiError(404, "not_found", error.message);
     }

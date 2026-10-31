@@ -1,4 +1,5 @@
 import { ZodError } from "zod";
+import { parseJsonBody, PayloadTooLargeError, UnsupportedMediaTypeError } from "@/lib/api/body";
 import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import {
   enforcePublicRateLimit,
@@ -10,6 +11,7 @@ import { recordAnalyticsEvent } from "@/modules/analytics";
 import {
   completeFeedback,
   FeedbackSubmitSchema,
+  FeedbackValidationError,
   SessionExpiredError,
   SessionInvalidError,
 } from "@/modules/feedback";
@@ -38,7 +40,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     const service = createServiceClient();
     const resolved = await resolveActiveQrByToken(service, token);
-    const json: unknown = await request.json();
+    const json: unknown = await parseJsonBody(request);
     const input = FeedbackSubmitSchema.parse(json);
 
     const session = await completeFeedback(service, {
@@ -76,6 +78,12 @@ export async function POST(request: Request, context: RouteContext) {
       },
     });
   } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return apiError(413, "payload_too_large", error.message);
+    }
+    if (error instanceof UnsupportedMediaTypeError) {
+      return apiError(415, "unsupported_media_type", error.message);
+    }
     if (error instanceof QrNotFoundError) {
       return apiError(404, "not_found", error.message);
     }
@@ -87,6 +95,9 @@ export async function POST(request: Request, context: RouteContext) {
     }
     if (error instanceof SessionInvalidError) {
       return apiError(400, "session_invalid", error.message);
+    }
+    if (error instanceof FeedbackValidationError) {
+      return apiError(400, "validation_error", error.message);
     }
     if (error instanceof ZodError) {
       return apiError(400, "validation_error", "Invalid feedback payload", error.issues);

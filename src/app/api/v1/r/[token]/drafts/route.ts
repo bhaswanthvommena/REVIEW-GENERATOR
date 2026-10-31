@@ -1,5 +1,6 @@
-﻿import { after } from "next/server";
+import { after } from "next/server";
 import { ZodError } from "zod";
+import { parseJsonBody, PayloadTooLargeError, UnsupportedMediaTypeError } from "@/lib/api/body";
 import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import {
   enforceDraftRateLimits,
@@ -31,7 +32,7 @@ export async function POST(request: Request, context: RouteContext) {
       return apiError(404, "not_found", "QR code not found");
     }
 
-    const json: unknown = await request.json();
+    const json: unknown = await parseJsonBody(request);
     const input = DraftCreateSchema.parse(json);
 
     const service = createServiceClient();
@@ -113,6 +114,12 @@ export async function POST(request: Request, context: RouteContext) {
       201,
     );
   } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return apiError(413, "payload_too_large", error.message);
+    }
+    if (error instanceof UnsupportedMediaTypeError) {
+      return apiError(415, "unsupported_media_type", error.message);
+    }
     if (error instanceof QrNotFoundError) {
       return apiError(404, "not_found", error.message);
     }

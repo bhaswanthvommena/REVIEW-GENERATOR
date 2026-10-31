@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { parseJsonBody, PayloadTooLargeError, UnsupportedMediaTypeError } from "@/lib/api/body";
 import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import {
   enforcePublicRateLimit,
@@ -15,6 +17,20 @@ import {
 } from "@/modules/qr";
 
 type RouteContext = { params: Promise<{ token: string }> };
+
+const ClientMetaSchema = z
+  .record(
+    z.string().max(30),
+    z.union([z.string().max(100), z.number(), z.boolean(), z.null()]),
+  )
+  .refine((val) => Object.keys(val).length <= 10, "Too many clientMeta keys")
+  .optional();
+
+const SessionCreateSchema = z
+  .object({
+    clientMeta: ClientMetaSchema,
+  })
+  .optional();
 
 export async function POST(request: Request, context: RouteContext) {
   try {
@@ -35,15 +51,16 @@ export async function POST(request: Request, context: RouteContext) {
 
     let clientMeta: Record<string, unknown> = {};
     try {
-      const json = (await request.json()) as { clientMeta?: Record<string, unknown> };
-      if (json.clientMeta && typeof json.clientMeta === "object") {
-        // Bounded: this is unauthenticated input stored as-is.
-        if (JSON.stringify(json.clientMeta).length <= 1000) {
-          clientMeta = json.clientMeta;
-        }
+      const json: unknown = await parseJsonBody(request);
+      const parsed = SessionCreateSchema.safeParse(json);
+      if (parsed.success && parsed.data?.clientMeta) {
+        clientMeta = parsed.data.clientMeta;
       }
-    } catch {
-      // empty body ok
+    } catch (err) {
+      if (err instanceof PayloadTooLargeError) {
+        return apiError(413, "payload_too_large", err.message);
+      }
+      // Empty or non-JSON body is allowed on session start
     }
 
     const session = await createFeedbackSession(service, {
@@ -68,6 +85,12 @@ export async function POST(request: Request, context: RouteContext) {
       201,
     );
   } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return apiError(413, "payload_too_large", error.message);
+    }
+    if (error instanceof UnsupportedMediaTypeError) {
+      return apiError(415, "unsupported_media_type", error.message);
+    }
     if (error instanceof QrNotFoundError) {
       return apiError(404, "not_found", error.message);
     }
