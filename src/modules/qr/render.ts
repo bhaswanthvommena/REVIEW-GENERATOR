@@ -1,4 +1,5 @@
 import QRCode from "qrcode";
+import type { PdfPageSize } from "./pdf";
 
 export type QrFormat = "png" | "svg" | "pdf";
 
@@ -9,7 +10,6 @@ export const QR_CARD_HEIGHT = 1020;
 const GOOGLE_LETTERS: Array<[string, string]> = [
   ["G", "#4285F4"],
   ["o", "#EA4335"],
-  ["o", "#FBBC05"],
   ["g", "#4285F4"],
   ["l", "#34A853"],
   ["e", "#EA4335"],
@@ -130,6 +130,7 @@ export async function renderQr(
   url: string,
   format: QrFormat,
   businessName: string,
+  options?: { pageSize?: PdfPageSize },
 ): Promise<{ contentType: string; body: string | ArrayBuffer }> {
   if (format === "svg") {
     const svg = await renderQrCardSvg(url, businessName);
@@ -140,7 +141,10 @@ export async function renderQr(
   const png = await renderFramedQrPng(url, businessName);
   if (format === "pdf") {
     const { pngToPdf } = await import("./pdf");
-    return { contentType: "application/pdf", body: await pngToPdf(png) };
+    return {
+      contentType: "application/pdf",
+      body: await pngToPdf(png, options?.pageSize),
+    };
   }
 
   return { contentType: "image/png", body: png };

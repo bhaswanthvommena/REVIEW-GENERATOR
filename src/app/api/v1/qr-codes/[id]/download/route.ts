@@ -1,4 +1,4 @@
-﻿import { z, ZodError } from "zod";
+import { z, ZodError } from "zod";
 import { apiError, internalError } from "@/lib/api/errors";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
@@ -19,6 +19,8 @@ export async function GET(request: Request, context: RouteContext) {
     const { searchParams } = new URL(request.url);
     const businessId = z.string().uuid().parse(searchParams.get("businessId"));
     const format = QrFormatSchema.parse(searchParams.get("format") ?? "png");
+    const pageSizeParam = searchParams.get("pageSize");
+    const pageSize = pageSizeParam === "a4" ? "a4" : "letter";
 
     const supabase = await createClient();
     const user = await requireUser(supabase);
@@ -33,7 +35,9 @@ export async function GET(request: Request, context: RouteContext) {
     }
 
     const publicUrl = buildPublicFeedbackUrl(qr.public_token);
-    const rendered = await renderQr(publicUrl, format, business.name);
+    const rendered = await renderQr(publicUrl, format, business.name, {
+      pageSize,
+    });
     const filename = qrDownloadFilename(business.name, format);
 
     return new Response(rendered.body, {
