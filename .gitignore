@@ -49,3 +49,5 @@ next-env.d.ts
 
 # Local-only project overview (never push)
 COMPLETE PROJECT OVERVIEW.md
+
+.cursor/
