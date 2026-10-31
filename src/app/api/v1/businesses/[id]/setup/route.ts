@@ -1,5 +1,6 @@
 import { ZodError } from "zod";
-import { apiError, apiOk } from "@/lib/api/errors";
+import { parseJsonBody, PayloadTooLargeError, UnsupportedMediaTypeError } from "@/lib/api/body";
+import { apiError, apiOk, internalError } from "@/lib/api/errors";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
 import {
@@ -7,14 +8,16 @@ import {
   getBusinessForOwner,
   saveBusinessSetup,
   SetupConflictError,
-  type Business,
-  type BusinessSetupInput,
 } from "@/modules/businesses";
 import { listQrCodesForBusiness, replaceActiveQrCode } from "@/modules/qr";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-/** Save profile, customer fields and rating questions in one request. */
+/**
+ * Save profile, customer fields, and rating questions in one request.
+ * Existing active QR codes are preserved so printed signs and cards remain valid.
+ * A new QR code is only minted if the business has no active code yet.
+ */
 export async function PUT(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
@@ -25,18 +28,27 @@ export async function PUT(request: Request, context: RouteContext) {
       return apiError(404, "not_found", "Business not found");
     }
 
-    const json: unknown = await request.json();
+    const json: unknown = await parseJsonBody(request);
     const input = BusinessSetupSchema.parse(json);
-    const profileChanged = profileDiffers(existing, input);
     await saveBusinessSetup(supabase, id, input);
 
+    // Safeguard printed QR codes: never revoke an existing active QR on profile update.
+    // Only mint a new code if no active QR code exists for this business yet.
     const codes = await listQrCodesForBusiness(supabase, id);
-    const qrReplaced = profileChanged || !codes.some((code) => code.is_active);
-    if (qrReplaced) {
+    const hasActiveQr = codes.some((code) => code.is_active);
+    let qrCreated = false;
+    if (!hasActiveQr) {
       await replaceActiveQrCode(supabase, id);
+      qrCreated = true;
     }
-    return apiOk({ ok: true, qrReplaced });
+    return apiOk({ ok: true, qrReplaced: qrCreated });
   } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return apiError(413, "payload_too_large", error.message);
+    }
+    if (error instanceof UnsupportedMediaTypeError) {
+      return apiError(415, "unsupported_media_type", error.message);
+    }
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return apiError(401, "unauthorized", "Sign in required");
     }
@@ -51,22 +63,6 @@ export async function PUT(request: Request, context: RouteContext) {
     if (error instanceof SetupConflictError) {
       return apiError(409, "conflict", error.message);
     }
-    console.error("save_business_setup failed", error);
-    return apiError(500, "save_failed", "Something went wrong, please try again.");
+    return internalError(error, "save_failed");
   }
-}
-
-function blank(value: string | null | undefined): string {
-  return (value ?? "").trim();
-}
-
-/** True when the printed-code details (name, place, link) actually changed. */
-function profileDiffers(existing: Business, input: BusinessSetupInput): boolean {
-  return (
-    blank(existing.name) !== blank(input.name) ||
-    blank(existing.category) !== blank(input.category) ||
-    blank(existing.location) !== blank(input.location) ||
-    blank(existing.description) !== blank(input.description) ||
-    blank(existing.google_review_url) !== blank(input.googleReviewUrl)
-  );
 }
