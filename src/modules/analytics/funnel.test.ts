@@ -41,4 +41,13 @@ describe("resolveAnalyticsDateRange", () => {
       resolveAnalyticsDateRange({ from: "2026-10-10", to: "2026-10-01" }),
     ).toThrow("INVALID_DATE_RANGE");
   });
+
+  it("rejects invalid date strings", () => {
+    expect(() =>
+      resolveAnalyticsDateRange({ from: "not-a-date", to: "2026-10-01" }),
+    ).toThrow("INVALID_DATE_RANGE");
+    expect(() =>
+      resolveAnalyticsDateRange({ from: "2026-10-01", to: "random" }),
+    ).toThrow("INVALID_DATE_RANGE");
+  });
 });

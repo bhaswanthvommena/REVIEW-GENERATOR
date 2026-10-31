@@ -11,7 +11,7 @@ export const PublicAnalyticsEventSchema = z.object({
   ]),
   feedbackSessionId: z.string().uuid().optional(),
   props: z
-    .record(z.string().max(40), z.union([z.string().max(200), z.number(), z.boolean(), z.null()]))
+    .record(z.string().max(40), z.union([z.string().max(80), z.number(), z.boolean(), z.null()]))
     .refine((value) => Object.keys(value).length <= 10, "Too many props")
     .optional(),
 });
