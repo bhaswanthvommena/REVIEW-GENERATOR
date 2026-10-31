@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { setActiveBusinessAction } from "@/modules/businesses";
 import {
   ProfileFields,
   validateProfile,
@@ -60,6 +61,7 @@ export function BusinessForm() {
         );
         return;
       }
+      await setActiveBusinessAction(body.business.id);
       router.push(`/dashboard/business/${body.business.id}`);
       router.refresh();
     } catch {

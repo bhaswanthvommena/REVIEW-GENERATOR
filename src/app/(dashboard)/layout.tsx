@@ -1,11 +1,15 @@
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { UnsavedChangesProvider } from "@/components/dashboard/unsaved-changes";
 import { Skeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/modules/auth";
-import { listBusinessesForOwner } from "@/modules/businesses";
+import {
+  ACTIVE_BUSINESS_COOKIE,
+  getActiveBusinessForOwner,
+} from "@/modules/businesses";
 import { publicAvatarUrl } from "@/modules/profile";
 
 /** Owner session via cookies — allowed to block instant navigation. */
@@ -53,9 +57,16 @@ async function DashboardSession({
     redirect("/login");
   }
 
-  const businesses = await listBusinessesForOwner(supabase, user.id);
-  const business = businesses[0] ?? null;
-  const setupHref = business ? `/dashboard/business/${business.id}` : "/dashboard/business";
+  const cookieStore = await cookies();
+  const activeCookieId = cookieStore.get(ACTIVE_BUSINESS_COOKIE)?.value;
+  const { active: business, businesses } = await getActiveBusinessForOwner(
+    supabase,
+    user.id,
+    activeCookieId,
+  );
+  const setupHref = business
+    ? `/dashboard/business/${business.id}`
+    : "/dashboard/business";
   const { data: profile } = await supabase
     .from("profiles")
     .select("avatar_path")
@@ -67,8 +78,15 @@ async function DashboardSession({
       <AppShell
         setupHref={setupHref}
         email={user.email ?? user.id}
-        businessName={business?.name ?? null}
-        avatarUrl={publicAvatarUrl((profile?.avatar_path as string | null | undefined) ?? null)}
+        businesses={businesses.map((b) => ({
+          id: b.id,
+          name: b.name,
+          category: b.category,
+        }))}
+        activeBusinessId={business?.id ?? null}
+        avatarUrl={publicAvatarUrl(
+          (profile?.avatar_path as string | null | undefined) ?? null,
+        )}
       >
         {children}
       </AppShell>

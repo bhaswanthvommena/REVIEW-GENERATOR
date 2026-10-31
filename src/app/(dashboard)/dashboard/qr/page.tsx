@@ -1,18 +1,27 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/modules/auth";
-import { listBusinessesForOwner } from "@/modules/businesses";
+import {
+  ACTIVE_BUSINESS_COOKIE,
+  getActiveBusinessForOwner,
+} from "@/modules/businesses";
 import { buildPublicFeedbackUrl, listQrCodesForBusiness } from "@/modules/qr";
 import { QrManager } from "./qr-manager";
 
 export default async function QrPage() {
   const supabase = await createClient();
   const user = await requireUser(supabase);
-  const businesses = await listBusinessesForOwner(supabase, user.id);
-  const business = businesses[0] ?? null;
+  const cookieStore = await cookies();
+  const activeCookieId = cookieStore.get(ACTIVE_BUSINESS_COOKIE)?.value;
+  const { active: business } = await getActiveBusinessForOwner(
+    supabase,
+    user.id,
+    activeCookieId,
+  );
 
   if (!business) {
     return (
