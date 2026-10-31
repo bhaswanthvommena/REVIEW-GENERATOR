@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   BarChart3,
@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { BusinessSwitcher, type SwitcherBusiness } from "@/components/dashboard/business-switcher";
 import { ProfileAvatar } from "@/components/dashboard/profile-avatar";
 import { buttonVariants } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
@@ -62,13 +63,16 @@ export function AppShell({
   children,
   setupHref,
   email,
-  businessName,
+  businesses = [],
+  activeBusinessId = null,
   avatarUrl,
 }: {
   children: React.ReactNode;
   setupHref: string;
   email: string;
-  businessName: string | null;
+  businesses?: SwitcherBusiness[];
+  activeBusinessId?: string | null;
+  businessName?: string | null;
   avatarUrl: string | null;
 }) {
   const pathname = usePathname();
@@ -152,7 +156,7 @@ export function AppShell({
 
       <div className="flex min-h-full min-w-0 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-md md:px-8">
-          <div className="flex min-w-0 items-center gap-1">
+          <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
               className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "-ml-2 md:hidden")}
@@ -162,12 +166,11 @@ export function AppShell({
             >
               <Menu className="size-5" aria-hidden="true" />
             </button>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">
-                {businessName ?? "No business yet"}
-              </p>
-              <p className="truncate text-xs text-muted-foreground md:hidden">{email}</p>
-            </div>
+            <BusinessSwitcher
+              businesses={businesses}
+              activeId={activeBusinessId}
+              email={email}
+            />
           </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />
