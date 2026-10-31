@@ -1,4 +1,4 @@
-﻿export {
+export {
   DraftCreateSchema,
   DraftModelOutputSchema,
   PROMPT_VERSION,
@@ -21,6 +21,7 @@ export {
   type GenerateDraftResult,
 } from "./generate";
 export {
+  countSavedDrafts,
   createDraftForSession,
   DraftLimitError,
   loadSessionContextForDraft,
@@ -28,4 +29,3 @@ export {
   persistReviewDraft,
   type ReviewDraftRow,
 } from "./service";
-

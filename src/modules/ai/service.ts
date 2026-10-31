@@ -31,6 +31,32 @@ type SessionContext = {
   previousDraft: string | null;
 };
 
+export class DraftLimitError extends Error {
+  constructor(message = DRAFT_LIMIT_MESSAGE) {
+    super(message);
+    this.name = "DraftLimitError";
+  }
+}
+
+/**
+ * Check existing draft count for a session before calling LLM APIs.
+ * Prevents unnecessary Gemini token usage when the limit is already reached.
+ */
+export async function countSavedDrafts(
+  service: SupabaseClient,
+  sessionId: string,
+): Promise<number> {
+  const { count, error } = await service
+    .from("review_drafts")
+    .select("*", { count: "exact", head: true })
+    .eq("feedback_session_id", sessionId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+  return count ?? 0;
+}
+
 export async function loadSessionContextForDraft(
   service: SupabaseClient,
   sessionId: string,
@@ -53,7 +79,8 @@ export async function loadSessionContextForDraft(
   }
 
   // Everything else only needs the session, so fetch it in parallel.
-  const [business, ratingRows, answerRows, previous] = await Promise.all([
+  // Count existing drafts upfront so we fail fast before making expensive AI calls.
+  const [business, ratingRows, answerRows, previous, draftCountResult] = await Promise.all([
     service
       .from("businesses")
       .select("name, category, location")
@@ -76,7 +103,18 @@ export async function loadSessionContextForDraft(
           .limit(1)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    service
+      .from("review_drafts")
+      .select("*", { count: "exact", head: true })
+      .eq("feedback_session_id", sessionId),
   ]);
+
+  if (draftCountResult.error) {
+    throw new Error(draftCountResult.error.message);
+  }
+  if ((draftCountResult.count ?? 0) >= MAX_DRAFTS_PER_SESSION) {
+    throw new DraftLimitError();
+  }
 
   if (business.error || !business.data) {
     throw new Error("BUSINESS_NOT_FOUND");
@@ -115,17 +153,10 @@ export async function loadSessionContextForDraft(
   };
 }
 
-export class DraftLimitError extends Error {
-  constructor(message = DRAFT_LIMIT_MESSAGE) {
-    super(message);
-    this.name = "DraftLimitError";
-  }
-}
-
 /**
  * Insert the draft row atomically, enforcing the per-session cap inside Postgres.
  * The DB function locks the session row first, then checks the count, then inserts —
- * eliminating the check-then-insert race condition.
+ * eliminating any concurrent check-then-insert race condition.
  */
 export async function persistReviewDraft(
   service: SupabaseClient,
@@ -221,7 +252,7 @@ export async function createDraftForSession(
   });
   const t2 = performance.now();
 
-  // persistReviewDraft now handles the cap check atomically in Postgres.
+  // persistReviewDraft handles the atomic insert and row lock in Postgres.
   const draft = await persistReviewDraft(service, {
     feedbackSessionId: ctx.session.id,
     businessId: ctx.session.business_id,
